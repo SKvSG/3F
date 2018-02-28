@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Stemilt Growers LLC</title>
+        <meta charset="utf-8">
+        <link type="text/css" rel="stylesheet" href="style.css">
+        <!--[if IE 6]><link type="text/css" rel="stylesheet" href="styles/ie6.css"><![endif]--><!--[if IE 7]><link type="text/css" rel="stylesheet" href="styles/ie7.css"><![endif]-->
+        <style type="text/css"></style>
+        <script>
+        function GetInfo(destination)
+        {
+            var request = new XMLHttpRequest();
+            request.onreadystatechange = function()
+            {
+                if (this.readyState == 4)
+                {
+                    if(this.status == 200)
+                    {
+                        if(this.responseText != null)
+                        {
+                            document.getElementById(destination).innerHTML = this.responseText;
+                        }
+                    }
+                }
+            }
+            request.open("GET","ajax_" + destination, true);
+            request.send(null);
+        }
+        </script>
+        <script>
+          function GetCount()
+          {
+            var request = new XMLHttpRequest();
+            request.onreadystatechange = function()
+            {
+              if (this.readyState == 4){
+                if(this.status == 200){
+                  if(this.responseText != null){
+                    document.getElementById("changenumber").setAttribute("value") = this.responseText;
+                  }
+                }
+              }
+            }
+            request.open("GET","ajax_count", true);
+            request.send(null);
+          }
+        </script>
+    </head>
+    <body>
+        <div id="wrap">
+            <div id="header">
+                <h1>
+                    <a href="index.htm">
+                        <video width="100px" height="64px" autoplay><source src="logo.mp4" type="video/mp4">Your browser does not support the video tag.</video>
+                    </a> 
+                    Fruit Frimness Finder
+                </h1>
+                <div id="nav">
+                    <ul id="nav-pages">
+                      <li><a href="index.htm" class="current">HOME</a><span>/</span></li>
+                      <li><a href="settings.htm">MACHINE SETTINGS</a><span>/</span></li>
+                      <li><a href="about.htm">ABOUT</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div id="frontpage-content">
+                <div id="frontpage-intro">
+                    <p><span><strong>3F</strong></span> Lot Settings<br></p>
+                </div>
+                <div id="featured-projects">
+                    <div id="featured-projects-bg1"> 
+                        <div id="text-container">
+                            <h3>Grower Lot:</h3>
+                            <script>
+                                GetInfo("Grower");
+                                GetInfo("Lot");
+                                GetInfo("Remaining");
+                            </script>
+                            <label>Grower: &zwnj;</label><div id="Grower"></div><br>
+                            <label>Lot: &zwnj;</label><div id="Lot"></div><br>
+                            <label>Lots Remaining: &zwnj;</label><div id="Remaining"></div><br>
+                            <label>Grower Number: &zwnj;</label><input type="text" name="Grower"  pattern="^([0-9]{1,3})$" required><br>
+                            <label>Lot Number: &zwnj;</label><input type="text" name="LotNumb"  pattern="^([0-9]{1,3})$" required><br>
+                            <label>&zwnj;</label><input type="submit" value="Next"><input type="submit" value="Previous"><input type="submit" value="Delete"><input type="submit" value="Add">
+                        </div>
+                        <br>
+                        <div id="text-container">
+                            <h3>Grower Setting Change</h3>
+                            <script>
+                            <!-- GetCount(); -->
+                            </script>
+                            <label>Change on Empty</label><input type="radio" name="growerchange" value="1" checked><br>
+                                <div>
+                                    <label>Change on Count</label>
+                                    <input type="radio" name="growerchange" value="0"><br>
+                                    <div class="reveal-if-active">
+                                        <label>Count: &zwnj;</label><input type="text" name="changenumber" value="10" pattern="^([0-9]{1,3})$"><br>
+                                    </div>
+                                </div>
+                                <label>&zwnj;</label><input type="submit" value="Apply"><br><br>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="footer">
+                <p class="copyright">Copyright © <a href="about.htm">Stemilt Growers LLC</a></p>
+            </div>
+        </div>
+    </body>
+</html>

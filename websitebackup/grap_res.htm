@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Stemilt Growers LLC</title>
+        <meta charset="utf-8">
+        <link type="text/css" rel="stylesheet" href="style.css">
+        <!--[if IE 6]><link type="text/css" rel="stylesheet" href="styles/ie6.css"><![endif]--><!--[if IE 7]><link type="text/css" rel="stylesheet" href="styles/ie7.css"><![endif]-->
+        <style type="text/css"></style></head><body>
+        <div id="wrap">
+            <div id="header">
+                <h1>
+                    <a href="index.htm">
+                        <video width="100px" height="64px" autoplay><source src="logo.mp4" type="video/mp4">Your browser does not support the video tag.</video>
+                    </a> 
+                    Fruit Frimness Finder
+                </h1>
+                <div id="nav">
+                    <ul id="nav-pages">
+                        <li><a href="index.htm" class="current">HOME</a><span>/</span></li>
+                        <li><a href="settings.htm">MACHINE SETTINGS</a><span>/</span></li>
+                        <li><a href="about.htm">ABOUT</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div id="frontpage-content">
+                <div id="frontpage-intro">
+                    <p><span><strong>3F</strong></span> Graph Results<br></p>
+                </div>
+                <div id="featured-projects">
+                    <div id="featured-projects-bg1"> 
+                        <div id="text-container">
+                            <h3>Firmness Averages</h3>
+                        </div>
+                    </div>
+                    <div id="featured-projects-bg"> 
+                        Great Firmness (>275+ g/mm)<div id="graphDiv1"></div>
+                        Good Firmness (250-275 g/mm)<div id="graphDiv2"></div>
+                        Okay Fimness (225-250 g/mm)<div id="graphDiv3"></div>
+                        Poor Firmness (200-225 g/mm)<div id="graphDiv4"></div>
+                        Bad Firmness (<175 g/mm)<div id="graphDiv5"></div>
+                        <!--[if IE]><script src="excanvas.js"></script><![endif]-->
+                        <script src="bar-grap.js"></script>
+                        <script>(function ()
+                        {
+                            function createCanvas(divName)
+                            {
+                                var div = document.getElementById(divName);
+                                var canvas = document.createElement('canvas');
+                                div.appendChild(canvas);
+                                if (typeof G_vmlCanvasManager != 'undefined') {
+                                    canvas = G_vmlCanvasManager.initElement(canvas);
+                                }	
+                                var ctx = canvas.getContext("2d");
+                                return ctx;
+                            }
+                            var ctx = createCanvas("graphDiv1");
+                            var graph = new BarGraph(ctx);
+                            graph.margin = 2;
+                            graph.width = 250;
+                            graph.height = 125;
+                            graph.colors = ["#ccffcc", "#99ff99", "#66ff66", "#33ff33", "#00ff00"];
+                            graph.xAxisLabelArr = ["80", "90", "100", "110", "120"];
+                            setInterval(function (){
+                                graph.update([Math.random() * 100, Math.random() * 100, Math.random() * 100, Math.random() * 100, Math.random() * 100]);
+                            }, 1000);
+                            
+                            var ctx2 = createCanvas("graphDiv2");
+                            var graph2 = new BarGraph(ctx2);
+                            graph2.margin = 2;
+                            graph2.width = 250;
+                            graph2.height = 125;
+                            graph2.colors = ["#e6ffcc", "#cdff99", "#b3ff66", "#9aff33", "#80ff00"];
+                            graph2.xAxisLabelArr = ["80", "90", "100", "110", "120"];
+                            setInterval(function () {
+                                graph2.update([Math.random() * 100, Math.random() * 100, Math.random() * 100, Math.random() * 100, Math.random() * 100]);
+                            }, 1000);
+                            
+                            var ctx3 = createCanvas("graphDiv3");
+                            var graph3 = new BarGraph(ctx3);
+                            graph3.margin = 2;
+                            graph3.width = 250;
+                            graph3.height = 125;
+                            graph3.colors = ["#ffffcc", "#ffff99", "#ffff66", "#ffff33", "#ffff00"];
+                            graph3.xAxisLabelArr = ["80", "90", "100", "110", "120"];
+                            setInterval(function () {
+                                graph3.update([Math.random() * 100, Math.random() * 100, Math.random() * 100, Math.random() * 100, Math.random() * 100]);
+                            }, 1000);
+                            
+                            var ctx4 = createCanvas("graphDiv4");
+                            var graph4 = new BarGraph(ctx4);
+                            graph4.margin = 2;
+                            graph4.width = 250;
+                            graph4.height = 125;
+                            graph4.colors = ["#ffe6cc", "#ffcd99", "#ffb366", "#ff9a33", "#ff8000"];
+                            graph4.xAxisLabelArr = ["80", "90", "100", "110", "120"];
+                            setInterval(function () {
+                                graph4.update([Math.random() * 100, Math.random() * 100, Math.random() * 100, Math.random() * 100, Math.random() * 100]);
+                            }, 1000);
+                            
+                            var ctx5 = createCanvas("graphDiv5");
+                            var graph5 = new BarGraph(ctx5);
+                            graph5.margin = 2;
+                            graph5.width = 250;
+                            graph5.height = 125;
+                            graph5.colors = ["#ffcccc", "#ff9999", "#ff6666", "#ff3333", "#ff0000"];
+                            graph5.xAxisLabelArr = ["80", "90", "100", "110", "120"];
+                            setInterval(function () {
+                                graph5.update([Math.random() * 100, Math.random() * 100, Math.random() * 100, Math.random() * 100, Math.random() * 100]);
+                            }, 1000);
+                        }());</script>
+                    </div>
+                </div>
+            </div>
+            <div id="footer">
+                <p class="copyright">Copyright © <a href="about.htm">Stemilt Growers LLC</a></p>
+            </div>
+        </div>
+    </body>
+</html>

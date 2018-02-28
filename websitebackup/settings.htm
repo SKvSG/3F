@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Stemilt Growers LLC</title>
+        <meta charset="utf-8">
+        <link type="text/css" rel="stylesheet" href="style.css">
+        <!--[if IE 6]><link type="text/css" rel="stylesheet" href="styles/ie6.css"><![endif]--><!--[if IE 7]><link type="text/css" rel="stylesheet" href="styles/ie7.css"><![endif]-->
+        <style type="text/css"></style>
+        <script>
+            function GetInfo(destination)
+            {
+                var request = new XMLHttpRequest();
+                request.onreadystatechange = function()
+                {
+                    if (this.readyState == 4)
+                    {
+                        if(this.status == 200)
+                        {
+                            if(this.responseText != null)
+                            {
+                                document.getElementById(destination).innerHTML = this.responseText;
+                            }
+                        }
+                    }
+                }
+                request.open("GET","ajax_" + destination, true);
+                request.send(null);
+            }
+        </script>
+        <script>
+            function GetIPState()
+            {
+                var request = new XMLHttpRequest();
+                request.onreadystatechange = function()
+                {
+                    if (this.readyState == 4)
+                    {
+                        if(this.status == 200)
+                        {
+                            if(this.responseText != null)
+                            {
+                                document.getElementById("aipa").innerHTML = this.responseText;
+                            }
+                        }
+                    }
+                }
+                request.open("GET","ajax_ip", true);
+                request.send(null);
+            }
+        </script>
+        <script>
+            function GetSubnetState()
+                {
+                    var request = new XMLHttpRequest();
+                    request.onreadystatechange = function()
+                    {
+                        if (this.readyState == 4)
+                        {
+                            if(this.status == 200)
+                            {
+                                if(this.responseText != null)
+                                {
+                                    document.getElementById("subn").innerHTML = this.responseText;
+                                }
+                            }
+                        }
+                    }
+                    request.open("GET","ajax_subn", true);
+                    request.send(null);
+                }
+        </script>
+        <script>
+            function GetGateState()
+                {
+                    var request = new XMLHttpRequest();
+                    request.onreadystatechange = function()
+                    {
+                        if (this.readyState == 4)
+                        {
+                            if(this.status == 200)
+                            {
+                                if(this.responseText != null)
+                                {
+                                    document.getElementById("gate").innerHTML = this.responseText;
+                                }
+                            }
+                        }
+                    }
+                    request.open("GET","ajax_gate", true);
+                    request.send(null);
+                }
+        </script>
+    </head>
+    <body>
+        <div id="wrap">
+            <div id="header">
+                <h1>
+                    <a href="index.htm">
+                        <video width="100px" height="64px" autoplay><source src="logo.mp4" type="video/mp4">Your browser does not support the video tag.</video>
+                    </a>
+                    Fruit Frimness Finder
+                </h1>
+                <div id="nav">
+                    <ul id="nav-pages">
+                        <li><a href="index.htm">HOME</a><span>/</span></li>
+                        <li><a href="settings.htm" class="current">MACHINE SETTINGS</a><span>/</span></li>
+                        <li><a href="about.htm">ABOUT</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div id="frontpage-content">
+                <div id="frontpage-intro">
+                    <p><span><strong>3F</strong></span> Machine Settings<br></p>
+                </div>
+                <div id="featured-projects">
+                    <div id="featured-projects-bg1"> 
+                        <div id="text-container">
+                            <h3>Network Settings</h3>
+                            <!-- <form action="/action_page.php">  -->
+                            <div>
+                                <label for="dhcp-choice">Automatic IP</label><input type="radio" name="dhcp" id="dhcp-choice" >
+                                <div class="reveal-if-active">
+                                    <form>
+                                        <fieldset>
+                                            <legend> Current IP: </legend>
+                                            <script>
+                                                GetIPState();
+                                                GetSubnetState();
+                                                GetGateState();
+                                            </script>
+                                            
+                                            <label>IP Address: &zwnj;</label>
+                                            <div id="aipa"></div>
+
+                                            <label>Subnet Mask: &zwnj;</label>
+                                            <div id="subn"></div>
+
+                                            <label>Default Gateway: &zwnj;</label>
+                                            <div id="gate"></div>
+
+                                            <button type="button" onclick="GetIPState(),GetSubnetState(), GetGateState()">refresh</button>
+                                        </fieldset>
+                                    </form>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="no-dhcp-choice">Static IP</label><input type="radio" name="dhcp" id="no-dhcp-choice">
+                                <div class="reveal-if-active">
+                                    <form>
+                                        <fieldset>
+                                                <legend> Static IP: </legend>
+                                                <label>IP Address: &zwnj;</label><input type="text" name="ipaddress"  pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$" ><br>
+                                                <label>Subnet Mask: &zwnj;</label><input type="text" name="subnet" pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$" ><br>
+                                                <label>Default Gateway: &zwnj;</label><input type="text" name="gateway" pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$" ><br>
+                                        </fieldset>
+                                    </form>
+                                </div>
+                            </div>
+                            <br>
+                            <label> &zwnj;</label><input type="submit" value="Save">
+                        </div>
+                        <div id="text-container">
+                            <h3>Pressure Settings</h3>
+                            <script>
+                                GetInfo("CPressure");
+                                GetInfo("FPressure");
+                                GetInfo("Rest");
+                            </script>
+                            <form>
+                                <label>Contact Pressure: &zwnj;</label><div id=CPressure></div><br>
+                                <label>Final Pressure: &zwnj;</label><div id=FPressure></div><br>
+                                <label>Rest Time: &zwnj;</label><div id=Rest></div><br>
+                                <label>Contact Pressure: &zwnj;</label><input type="text" name="contp"><br>
+                                <label>Final Pressure: &zwnj;</label><input type="text" name="finap"><br>
+                                <label>Rest Time: &zwnj;</label><input type="text" name="restt"><br>
+                                <br>
+                                <label>&zwnj;</label><input type="submit" value="Update">
+                            </form>
+                        </div>
+                        <div id="text-container">
+                            <h3>Calibration Settings</h3>
+                            <script>
+                                GetInfo("WUnits");
+                                GetInfo("DUnits");
+                                GetInfo("Calib");
+                            </script>
+                            <label>Grams &zwnj;</label><input type="radio" name="grams" value="1" checked><br>
+                            <label>Pounds &zwnj;</label><input type="radio" name="grams" value="0"><br>
+                            <br>
+                            <label>Millimeters &zwnj;</label><input type="radio" name="mili" value="1" checked><br>
+                            <label>Inches &zwnj;</label><input type="radio" name="mili" value="0"><br>
+                            <br>
+                            <label>Current Reading: &zwnj;<div id=Calib></div>
+                            <label>Calibration Weight: &zwnj;</label><input type="text" name="cweigh"><br>
+                            <br>
+                            <label> &zwnj;</label><input type="submit" value="Calibrate"><br>
+                        </div>
+                        <br>
+                    </div>
+                </div>
+            </div>
+            <div id="footer">
+                <p class="copyright">Copyright © <a href="about.htm">Stemilt Growers LLC</a></p>
+            </div>
+        </div>
+    </body>
+</html>

@@ -1,0 +1,10 @@
+Last Not Complete Stopped@Line 164 |Cut Mode|  Elapsed: 00:02:23  ConsoleMvSpeed 0.42  FileEndSpeed 0.4    11:45:33  10-20-2017
+ File Completed:No  Ln:164 Max: 15.94, 16.94, 0.80  Min: 0.06, 0.06,- 0.24  Offset:no  Brks=1  TBCs: 4.000, 1.000, .959  Props: 1.000, 1.000, 1.000
+Last Not Complete Stopped@Line 35 |Cut Mode|  Elapsed: 00:02:32  ConsoleMvSpeed 0.42  FileEndSpeed 0.4    11:49:20  10-20-2017
+ File Completed:No  Ln:35 Max: 15.94, 15.94, 0.80  Min: 0.06, 0.06,- 0.25  Offset:no  Brks=1  TBCs: 4.000, 1.000, .959  Props: 1.000, 1.000, 1.000
+Last Complete  |Cut Mode|  Elapsed: 00:02:32  ConsoleMvSpeed 0.42  FileEndSpeed 0.4    11:52:03  10-20-2017
+ File Completed:Yes Ln:45 Max: 15.94, 16.94, 0.80  Min: 0.00, 0.00,- 0.25  Offset:no  Brks=0  TBCs: 4.000, 1.000, .959  Props: 1.000, 1.000, 1.000
+Last Not Complete Stopped@Line 37 |Cut Mode|  Elapsed: 00:01:52  ConsoleMvSpeed 0.75  FileEndSpeed 0.4    12:08:42  10-20-2017
+ File Completed:No  Ln:37 Max: 15.94, 16.94, 0.80  Min: 0.06, 0.06,- 0.25  Offset:no  Brks=1  TBCs: 4.000, 1.000, 1.446  Props: 1.000, 1.000, 1.000
+Last Complete  |Cut Mode|  Elapsed: 00:02:33  ConsoleMvSpeed 0.75  FileEndSpeed 0.4    12:12:28  10-20-2017
+ File Completed:Yes Ln:45 Max: 15.94, 16.94, 0.80  Min: 0.00, 0.00,- 0.25  Offset:no  Brks=0  TBCs: 4.000, 1.000, .946  Props: 1.000, 1.000, 1.000
