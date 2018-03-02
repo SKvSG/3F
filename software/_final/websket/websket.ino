@@ -104,6 +104,7 @@ bool new_lot = true;
 // returns 1 if string found
 // returns 0 if string not found
 
+
 /*/////////////////////////////////////////////////////////////////////////////////////////
 * FUNCTION DECLARATIONS
 *//////////////////////////////////////////////////////////////////////////////////////////
@@ -146,12 +147,10 @@ void setup()
 
 void loop()
 {
-    Serial.print("a");
     EthernetClient client = server.available();  // try to get client
-    Serial.println("b");
+    
     if (client)   // serve client website
     {
-        Serial.println("d");
         serveclient(client);
         Serial.println("served");
     }
@@ -330,12 +329,15 @@ struct machineSettings loadSettings(struct machineSettings localSettings)
 
 void initializeNetwork(struct machineSettings localSettings)
 {
-    //Ethernet.begin(mac, ip);  // initialize Ethernet device
+//    pinMode(10, OUTPUT);
+//    digitalWrite(10, HIGH);
     Ethernet.begin(localSettings.mac);  // initialize Ethernet device
     server.begin();           // start to listen for clients
     resetLCD();
     lcd.print("Server IP:      ");
     lcd.print(Ethernet.localIP());
+    Serial.print("Server IP:      ");
+    Serial.print(Ethernet.localIP());
 }
 
 char * getw()
@@ -477,16 +479,18 @@ void processrequest(char * ,EthernetClient client)
     if (SD.exists(request))       //check for requested file
     {
       Serial.print("open this file:");
-      Serial.print(request);
+      Serial.println(request);
       sendheader(request, client);    //send header depending on file type
       webFile = SD.open(request);
-      while(webFile.available()) 
+      if (webFile)
       {
-        client.write(webFile.read()); // send web page to client
-        Serial.print("*");
+        while(webFile.available()) 
+        {
+          client.write(webFile.read()); // send web page to client
+        }
+        Serial.println("file sent");
+        webFile.close();
       }
-      Serial.print("end of file");
-      webFile.close();
     }
     
 //    else if (StrContains(request, "ajax"))   //serve ajax call
@@ -819,36 +823,40 @@ void testfirmness()
       
 void serveclient(EthernetClient client)
 {
-  boolean currentLineIsBlank = false;
+  char *request;
+  boolean currentLineIsBlank = true;
   boolean FileRequest = false;
-  char * request;
-  int req_index = 0;
+
+
   while (client.connected()) 
   {
     if (client.available())
     {
       request = getclientdata(client); //fills HTTP buffer
-      if ((int(*(request+req_index)) == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
+      Serial.print( HTTP_req[req_index-1]);
+      Serial.print (*request);
+      if ((HTTP_req[req_index-1] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
       {
        Serial.print("process this");
-       Serial.print(request);
-       currentLineIsBlank = false;
+       Serial.print(HTTP_req[]);
+       processrequest(HTTP_req, client);        //serve request
+       //currentLineIsBlank = false;
        req_index = 0;
-       processrequest(request, client);        //serve request
-       StrClear(request, REQ_BUF_SZ);
+       StrClear(HTTP_req, REQ_BUF_SZ);
        break;
       }
-      else if (int(*(request+req_index)) == '\n')      // every line of text received from the client ends with \r\n
+      else if (HTTP_req[req_index-1] == '\n')      // every line of text received from the client ends with \r\n
       {
          //last character on line of received text
          //starting new line with next character read
          currentLineIsBlank = true;
       } 
-      else if (int(*(request+req_index)) != '\r') 
+      else if (HTTP_req[req_index-1] != '\r') 
       {
         // a text character was received from client
         currentLineIsBlank = false;
       }
+
       req_index++;
     }
   } // end while (client.connected())
@@ -859,18 +867,22 @@ void serveclient(EthernetClient client)
   Serial.println("client disconnected");
 }
 
-char * getclientdata(EthernetClient client)
+char *getclientdata(EthernetClient client)
 {
     if (client.available()) // client data available to read
     {
       char c = client.read(); // read 1 byte (character) from client
                           // buffer first part of HTTP request in HTTP_req array (string)
                           // leave last element in array as 0 to null terminate string (REQ_BUF_SZ - 1)
-      if (req_index < (REQ_BUF_SZ - 1)) 
-      {
-        HTTP_req[req_index] = c;          // save HTTP request character
-        req_index++;
-    }
+
+      //Serial.print(c);
+
+        if (req_index < (REQ_BUF_SZ - 1)) 
+        {
+  
+          HTTP_req[req_index] = c;          // save HTTP request character
+          req_index++;
+        }
     return HTTP_req;
     }
 }
