@@ -823,7 +823,7 @@ void testfirmness()
       
 void serveclient(EthernetClient client)
 {
-  char *request;
+  char * request;
   boolean currentLineIsBlank = true;
   boolean FileRequest = false;
 
@@ -834,12 +834,12 @@ void serveclient(EthernetClient client)
     {
       request = getclientdata(client); //fills HTTP buffer
       Serial.print( HTTP_req[req_index-1]);
-      Serial.print (*request);
+      Serial.print (HTTP_req);
       if ((HTTP_req[req_index-1] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
       {
        Serial.print("process this");
-       Serial.print(HTTP_req[]);
-       processrequest(HTTP_req, client);        //serve request
+       Serial.print(HTTP_req);
+       processrequest(request, client);        //serve request
        //currentLineIsBlank = false;
        req_index = 0;
        StrClear(HTTP_req, REQ_BUF_SZ);
@@ -867,7 +867,7 @@ void serveclient(EthernetClient client)
   Serial.println("client disconnected");
 }
 
-char *getclientdata(EthernetClient client)
+char * getclientdata(EthernetClient client)
 {
     if (client.available()) // client data available to read
     {
