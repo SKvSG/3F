@@ -147,10 +147,13 @@ void setup()
 
 void loop()
 {
+
     EthernetClient client = server.available();  // try to get client
     
+
     if (client)   // serve client website
     {
+
         serveclient(client);
         Serial.println("served");
     }
@@ -331,13 +334,14 @@ void initializeNetwork(struct machineSettings localSettings)
 {
 //    pinMode(10, OUTPUT);
 //    digitalWrite(10, HIGH);
+
     Ethernet.begin(localSettings.mac);  // initialize Ethernet device
     server.begin();           // start to listen for clients
     resetLCD();
     lcd.print("Server IP:      ");
     lcd.print(Ethernet.localIP());
     Serial.print("Server IP:      ");
-    Serial.print(Ethernet.localIP());
+    Serial.println(Ethernet.localIP());
 }
 
 char * getw()
@@ -487,6 +491,7 @@ void processrequest(char * ,EthernetClient client)
         while(webFile.available()) 
         {
           client.write(webFile.read()); // send web page to client
+
         }
         Serial.println("file sent");
         webFile.close();
@@ -827,32 +832,36 @@ void serveclient(EthernetClient client)
   boolean currentLineIsBlank = true;
   boolean FileRequest = false;
 
+  int req_index = 0;
+
 
   while (client.connected()) 
   {
     if (client.available())
     {
       request = getclientdata(client); //fills HTTP buffer
-      Serial.print( HTTP_req[req_index-1]);
-      Serial.print (HTTP_req);
-      if ((HTTP_req[req_index-1] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
+      Serial.print( HTTP_req[req_index]);
+      //Serial.print (HTTP_req);
+      if ((HTTP_req[req_index] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
       {
-       Serial.print("process this");
-       Serial.print(HTTP_req);
+       Serial.println("process this");
+       Serial.print(request);
        processrequest(request, client);        //serve request
        //currentLineIsBlank = false;
        req_index = 0;
+
        StrClear(HTTP_req, REQ_BUF_SZ);
        break;
       }
-      else if (HTTP_req[req_index-1] == '\n')      // every line of text received from the client ends with \r\n
+      else if (HTTP_req[req_index] == '\n')      // every line of text received from the client ends with \r\n
       {
          //last character on line of received text
          //starting new line with next character read
          currentLineIsBlank = true;
       } 
-      else if (HTTP_req[req_index-1] != '\r') 
+      else if (HTTP_req[req_index] != '\r') 
       {
+         //Serial.print("char");
         // a text character was received from client
         currentLineIsBlank = false;
       }
