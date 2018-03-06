@@ -79,17 +79,8 @@ int changecount = 25;  //TODO: add to grower struct
 EthernetServer server(80);  // create a server at port 80
 File webFile;
 char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null terminated string
-int req_index = 0;              // index into HTTP_req buffer
-
-char* request_list[] = {"GET / ","index.htm","about.htm","bar-grap.js",
-                        "excanvas.js","export.htm","export.png","favicon.ico",
-                        "download.png","grap_res.htm","grap_res.png","style.css",
-                        "logo.mp4","lot_numb.htm","lot_numb.png","settings.htm",
-                        "ajax_ip","ajax_subn","ajax_gate","changecount","Grower",
-                        "Lot","Remaining","CPressure","FPressure","Rest","WUnits",
-                        "DUnits","Calib","receiveip"};
-                        
-                        //***request list vs filelist should be seperated
+char request[12] = {0}; // buffered HTTP request stored as null terminated string
+int request_index = 0;              // index into HTTP_req buffer
 
 //File dataFile;
 int animation_step = 0;
@@ -118,7 +109,7 @@ void serveclient(EthernetClient client);      //recieve request from client
 char * getclientdata(EthernetClient client);
 void processrequest(char * );
 //void processrequest(char *, machinesettings)
-char * validaterequest(char *);
+const char * validaterequest(char *);
 const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient client); //***handle ajax requests TODO: REMOVE ETHERNETCLIENT RETURN STRING
 //const char * processaction(char HTTP_req[REQ_BUF_SZ], machinesettings); //***handle ajax requests TODO: REMOVE ETHERNETCLIENT RETURN STRING
 char StrContains(char *str, char *sfind);     //check request for string
@@ -150,12 +141,9 @@ void loop()
 
     EthernetClient client = server.available();  // try to get client
     
-
     if (client)   // serve client website
     {
-
         serveclient(client);
-        Serial.println("served");
     }
 //    else if (digitalRead(BTN1) == 0) // continue testing firmness
 //    {
@@ -269,22 +257,38 @@ void initializeSD()
         return;    // init failed
     }
     resetLCD();
+    lcd.print("SUCCESS - SD card initialized.");
     Serial.print("SUCCESS - SD card initialized.");
     delay(1250);
     // check for index.htm file
     if (!SD.exists("index.htm")) {
         resetLCD();
         lcd.print("ERROR - Can't find index.htm file!");
+        Serial.print("ERROR - Can't find index.htm file!");
         delay(1250);
         return;  // can't find index file
     }
     resetLCD();
     lcd.print("SUCCESS - Found index.htm file.");
+    Serial.print("SUCCESS - Found index.htm file.");
+    delay(1250);
+
+    if (!SD.exists("lot_numb.png")) {
+        resetLCD();
+        lcd.print("ERROR - Can't find lot_numb.png file!");
+        Serial.print("ERROR - Can't find lot_numb.png file!");
+        delay(1250);
+        return;  // can't find index file
+    }
+    resetLCD();
+    lcd.print("SUCCESS - Found lot_numb.png file.");
+    Serial.print("SUCCESS - Found lot_numb.png file.");
     delay(1250);
 
     if (!SD.exists("DATALOG.TXT")) {
       resetLCD();
       lcd.print("ERROR - Can't find log file!");
+      Serial.print("ERROR - Can't find log file!");
       delay(1250);
       
     }
@@ -475,12 +479,13 @@ void updatedata( char *str, File dataFile) //consider returning bool for success
 void processrequest(char * ,EthernetClient client)
 {
   // open requested web page file
+  
   Serial.print("validate request:");
-  char * request = validaterequest( HTTP_req ); //does file/command exist?
+  validaterequest( HTTP_req, request );
+  //Serial.print( validaterequest( HTTP_req )); //does file/command exist?
   Serial.println(request);
-
-
-    if (SD.exists(request))       //check for requested file
+  
+    if (SD.exists( request))       //check for requested file
     {
       Serial.print("open this file:");
       Serial.println(request);
@@ -505,7 +510,7 @@ void processrequest(char * ,EthernetClient client)
 //    }
   else
   { //send 404
-    Serial.print("404");
+    Serial.println("404");
     client.println("HTTP/1.1 404 Not Found");
     client.println("Content-Type: text/html");
     client.println("Connnection: close");
@@ -514,24 +519,27 @@ void processrequest(char * ,EthernetClient client)
 }
 
        
-char * validaterequest(char * HTTP_req)
+void validaterequest(char * HTTP_req, char * request)
 {
   word i = 0;
   byte j = 0;
-  char request[255] = {0};
+  //char request[255] = {0};
   boolean isRequest = false;
+  index_request = {'i','n'
   while (HTTP_req[i] != '\n')
   {
     if (HTTP_req[i] == '/')
     {//start recording
       isRequest = true;
-      if (HTTP_req[i+1] == ' ') //if blank send index
+      if (HTTP_req[i+1] == ' ') //if current letter / and next blank send index
       {
-        return "index.htm";
+        request = "index.htm";
+        //return "index.htm";
       }
     }
-    else if (isRequest && HTTP_req[i] == ' ')
-    { //end of file name
+    else if (isRequest && HTTP_req[i] == ' ') //end of file name
+    {
+      request[j] = 0;
       break;
     }
     else if (isRequest)
@@ -541,15 +549,15 @@ char * validaterequest(char * HTTP_req)
     }
     i++;
   }
-  if (request)
-  {
-    Serial.print(request);
-    return request;
-  }
-  else
-  {
-    return false;
-  }
+//  if (isRequest)
+//  {
+//    Serial.print(request);
+//    return request;
+//  }
+//  else
+//  {
+//    return false;
+//  }
 //  //filename = http_req.substring(from)
 //  //SD.exists(filename)
 //  for (int request_count = 0; sizeof(request_list); request_count++)      //identify request
@@ -829,7 +837,7 @@ void testfirmness()
 void serveclient(EthernetClient client)
 {
   char * request;
-  boolean currentLineIsBlank = true;
+  boolean currentLineIsBlank = false;
   boolean FileRequest = false;
 
   int req_index = 0;
@@ -840,7 +848,7 @@ void serveclient(EthernetClient client)
     if (client.available())
     {
       request = getclientdata(client); //fills HTTP buffer
-      Serial.print( HTTP_req[req_index]);
+      //Serial.print( HTTP_req[req_index]);
       //Serial.print (HTTP_req);
       if ((HTTP_req[req_index] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
       {
@@ -849,7 +857,7 @@ void serveclient(EthernetClient client)
        processrequest(request, client);        //serve request
        //currentLineIsBlank = false;
        req_index = 0;
-
+       request_index = 0;
        StrClear(HTTP_req, REQ_BUF_SZ);
        break;
       }
@@ -885,13 +893,15 @@ char * getclientdata(EthernetClient client)
                           // leave last element in array as 0 to null terminate string (REQ_BUF_SZ - 1)
 
       //Serial.print(c);
+      //Serial.print(request_index);
 
-        if (req_index < (REQ_BUF_SZ - 1)) 
+        if (request_index < (REQ_BUF_SZ - 1)) 
         {
   
-          HTTP_req[req_index] = c;          // save HTTP request character
-          req_index++;
+          HTTP_req[request_index] = c;          // save HTTP request character
+          request_index++;
         }
+
     return HTTP_req;
     }
 }
