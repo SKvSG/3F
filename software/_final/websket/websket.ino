@@ -525,7 +525,7 @@ void validaterequest(char * HTTP_req, char * request)
   byte j = 0;
   //char request[255] = {0};
   boolean isRequest = false;
-  index_request = {'i','n'
+  //index_request = {'i','n'
   while (HTTP_req[i] != '\n')
   {
     if (HTTP_req[i] == '/')
@@ -533,7 +533,10 @@ void validaterequest(char * HTTP_req, char * request)
       isRequest = true;
       if (HTTP_req[i+1] == ' ') //if current letter / and next blank send index
       {
-        request = "index.htm";
+        //request = "index.htm";
+        Serial.print("send index");
+        strcpy( request, "index.htm");
+        j = 9;
         //return "index.htm";
       }
     }
