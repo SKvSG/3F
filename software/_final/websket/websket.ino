@@ -1,6 +1,6 @@
 #include <avr/io.h>
 #include <SPI.h>
-#include <Ethernet3.h>
+#include <Ethernet.h>
 #include <SD.h>
 #include <stdio.h>
 
@@ -140,10 +140,12 @@ void loop()
 {
 
     EthernetClient client = server.available();  // try to get client
-    
     if (client)   // serve client website
     {
         serveclient(client);
+//        Serial.print(Ethernet.linkReport());
+//        client.flush();
+        client.stop();
     }
 //    else if (digitalRead(BTN1) == 0) // continue testing firmness
 //    {
@@ -173,6 +175,13 @@ void initializePins()
     pinMode(HEAD2EN , OUTPUT);
     head1.setRX(26);  //firmness head 1
     head1.setTX(31);  
+    pinMode(9, OUTPUT);
+    digitalWrite(9, LOW);    // begin reset the WIZ820io
+    pinMode(10, OUTPUT);
+    digitalWrite(10, HIGH);  // de-select WIZ820io
+    pinMode(4, OUTPUT);
+    digitalWrite(4, HIGH);   // de-select the SD Card
+    digitalWrite(9, HIGH);   // end reset pulse
 }
 
 void initializeSerial()
@@ -346,6 +355,8 @@ void initializeNetwork(struct machineSettings localSettings)
     lcd.print(Ethernet.localIP());
     Serial.print("Server IP:      ");
     Serial.println(Ethernet.localIP());
+//    Ethernet.setRtTimeOut(500); // timeout 30ms
+//    Ethernet.setRtCount(2);
 }
 
 char * getw()
@@ -525,7 +536,6 @@ void validaterequest(char * HTTP_req, char * request)
   byte j = 0;
   //char request[255] = {0};
   boolean isRequest = false;
-  //index_request = {'i','n'
   while (HTTP_req[i] != '\n')
   {
     if (HTTP_req[i] == '/')
@@ -533,11 +543,9 @@ void validaterequest(char * HTTP_req, char * request)
       isRequest = true;
       if (HTTP_req[i+1] == ' ') //if current letter / and next blank send index
       {
-        //request = "index.htm";
         Serial.print("send index");
         strcpy( request, "index.htm");
         j = 9;
-        //return "index.htm";
       }
     }
     else if (isRequest && HTTP_req[i] == ' ') //end of file name
@@ -552,28 +560,6 @@ void validaterequest(char * HTTP_req, char * request)
     }
     i++;
   }
-//  if (isRequest)
-//  {
-//    Serial.print(request);
-//    return request;
-//  }
-//  else
-//  {
-//    return false;
-//  }
-//  //filename = http_req.substring(from)
-//  //SD.exists(filename)
-//  for (int request_count = 0; sizeof(request_list); request_count++)      //identify request
-//  {
-//    if (request(HTTP_req, request_list[request_count]))  
-//    {
-//      return true;
-//    }
-//    else if ( request_count == sizeof(request_list))
-//    {
-//      return false;
-//    }
-//  }
 }
 
 void sendheader(char *request,EthernetClient client)
@@ -858,7 +844,7 @@ void serveclient(EthernetClient client)
        Serial.println("process this");
        Serial.print(request);
        processrequest(request, client);        //serve request
-       //currentLineIsBlank = false;
+       currentLineIsBlank = false;
        req_index = 0;
        request_index = 0;
        StrClear(HTTP_req, REQ_BUF_SZ);
@@ -878,12 +864,14 @@ void serveclient(EthernetClient client)
       }
 
       req_index++;
-    }
+    }// end if (client.available())
   } // end while (client.connected())
   // give the web browser time to receive the data
-  delay(1);
+  delay(10);
   // close the connection:
+  client.flush();
   client.stop();
+  //delay(1000);
   Serial.println("client disconnected");
 }
 
