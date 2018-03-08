@@ -142,9 +142,8 @@ void loop()
     EthernetClient client = server.available();  // try to get client
     if (client)   // serve client website
     {
-        serveclient(client);
-//        Serial.print(Ethernet.linkReport());
-//        client.flush();
+        serveclient(client); 
+        client.flush();
         client.stop();
     }
 //    else if (digitalRead(BTN1) == 0) // continue testing firmness
@@ -155,6 +154,7 @@ void loop()
 //    else { //idle animation
 //        idleanim();
 //    }
+
 }
 
 /*/////////////////////////////////////////////////////////////////////////////////////////
@@ -345,9 +345,6 @@ struct machineSettings loadSettings(struct machineSettings localSettings)
 
 void initializeNetwork(struct machineSettings localSettings)
 {
-//    pinMode(10, OUTPUT);
-//    digitalWrite(10, HIGH);
-
     Ethernet.begin(localSettings.mac);  // initialize Ethernet device
     server.begin();           // start to listen for clients
     resetLCD();
@@ -355,8 +352,8 @@ void initializeNetwork(struct machineSettings localSettings)
     lcd.print(Ethernet.localIP());
     Serial.print("Server IP:      ");
     Serial.println(Ethernet.localIP());
-//    Ethernet.setRtTimeOut(500); // timeout 30ms
-//    Ethernet.setRtCount(2);
+    //Ethernet.setRtTimeOut(500); // timeout 30ms
+    //Ethernet.setRtCount(2);
 }
 
 char * getw()
@@ -869,9 +866,11 @@ void serveclient(EthernetClient client)
   // give the web browser time to receive the data
   delay(10);
   // close the connection:
-  client.flush();
+  //client.flush();
   client.stop();
-  //delay(1000);
+  //Serial.print(client.connected());
+  //Serial.print(client.available());
+  //Serial.print(server.available());
   Serial.println("client disconnected");
 }
 
@@ -882,9 +881,6 @@ char * getclientdata(EthernetClient client)
       char c = client.read(); // read 1 byte (character) from client
                           // buffer first part of HTTP request in HTTP_req array (string)
                           // leave last element in array as 0 to null terminate string (REQ_BUF_SZ - 1)
-
-      //Serial.print(c);
-      //Serial.print(request_index);
 
         if (request_index < (REQ_BUF_SZ - 1)) 
         {
