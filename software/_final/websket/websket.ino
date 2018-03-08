@@ -58,7 +58,6 @@ int BTN2 = 23;
 *//////////////////////////////////////////////////////////////////////////////////////////
 struct machineSettings
 {
-
     int array[100];
     byte mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
  //   IPAddress ip(10, 34, 10, 131);
@@ -74,15 +73,14 @@ static char h0str[7];  //must be one more than message length
 static char h1str[7];  //must be one more than message length
 static char h2str[7];  //must be one more than message length
 int changecount = 25;  //TODO: add to grower struct
-//byte mac[6] = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-//IPAddress ip(10, 34, 10, 131);
+
 EthernetServer server(80);  // create a server at port 80
 File webFile;
 char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null terminated string
 char request[12] = {0}; // buffered HTTP request stored as null terminated string
 int request_index = 0;              // index into HTTP_req buffer
-
 //File dataFile;
+
 int animation_step = 0;
 unsigned long previousMillis = 0;
 char *str;  //must be one more than message length
@@ -138,13 +136,10 @@ void setup()
 
 void loop()
 {
-
     EthernetClient client = server.available();  // try to get client
     if (client)   // serve client website
     {
         serveclient(client); 
-        client.flush();
-        client.stop();
     }
 //    else if (digitalRead(BTN1) == 0) // continue testing firmness
 //    {
@@ -154,7 +149,6 @@ void loop()
 //    else { //idle animation
 //        idleanim();
 //    }
-
 }
 
 /*/////////////////////////////////////////////////////////////////////////////////////////
@@ -215,7 +209,6 @@ char StrContains(char *str, char *sfind)
         }
         index++;
     }
-
     return 0;
 }
 
@@ -268,30 +261,6 @@ void initializeSD()
     resetLCD();
     lcd.print("SUCCESS - SD card initialized.");
     Serial.print("SUCCESS - SD card initialized.");
-    delay(1250);
-    // check for index.htm file
-    if (!SD.exists("index.htm")) {
-        resetLCD();
-        lcd.print("ERROR - Can't find index.htm file!");
-        Serial.print("ERROR - Can't find index.htm file!");
-        delay(1250);
-        return;  // can't find index file
-    }
-    resetLCD();
-    lcd.print("SUCCESS - Found index.htm file.");
-    Serial.print("SUCCESS - Found index.htm file.");
-    delay(1250);
-
-    if (!SD.exists("lot_numb.png")) {
-        resetLCD();
-        lcd.print("ERROR - Can't find lot_numb.png file!");
-        Serial.print("ERROR - Can't find lot_numb.png file!");
-        delay(1250);
-        return;  // can't find index file
-    }
-    resetLCD();
-    lcd.print("SUCCESS - Found lot_numb.png file.");
-    Serial.print("SUCCESS - Found lot_numb.png file.");
     delay(1250);
 
     if (!SD.exists("DATALOG.TXT")) {
@@ -490,7 +459,6 @@ void processrequest(char * ,EthernetClient client)
   
   Serial.print("validate request:");
   validaterequest( HTTP_req, request );
-  //Serial.print( validaterequest( HTTP_req )); //does file/command exist?
   Serial.println(request);
   
     if (SD.exists( request))       //check for requested file
@@ -525,13 +493,11 @@ void processrequest(char * ,EthernetClient client)
     client.println();
   }
 }
-
        
 void validaterequest(char * HTTP_req, char * request)
 {
   word i = 0;
   byte j = 0;
-  //char request[255] = {0};
   boolean isRequest = false;
   while (HTTP_req[i] != '\n')
   {
@@ -834,8 +800,6 @@ void serveclient(EthernetClient client)
     if (client.available())
     {
       request = getclientdata(client); //fills HTTP buffer
-      //Serial.print( HTTP_req[req_index]);
-      //Serial.print (HTTP_req);
       if ((HTTP_req[req_index] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
       {
        Serial.println("process this");
@@ -855,7 +819,6 @@ void serveclient(EthernetClient client)
       } 
       else if (HTTP_req[req_index] != '\r') 
       {
-         //Serial.print("char");
         // a text character was received from client
         currentLineIsBlank = false;
       }
@@ -864,13 +827,9 @@ void serveclient(EthernetClient client)
     }// end if (client.available())
   } // end while (client.connected())
   // give the web browser time to receive the data
-  delay(10);
+  delay(1);
   // close the connection:
-  //client.flush();
   client.stop();
-  //Serial.print(client.connected());
-  //Serial.print(client.available());
-  //Serial.print(server.available());
   Serial.println("client disconnected");
 }
 
@@ -884,7 +843,6 @@ char * getclientdata(EthernetClient client)
 
         if (request_index < (REQ_BUF_SZ - 1)) 
         {
-  
           HTTP_req[request_index] = c;          // save HTTP request character
           request_index++;
         }
