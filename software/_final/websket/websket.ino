@@ -99,23 +99,24 @@ bool new_lot = true;
 *//////////////////////////////////////////////////////////////////////////////////////////
 void initializePins();                        //set inputs and outputs
 void initializeSD();                          //***check for SD card and needed files on SD (neds to check for more files)
+//void initializeSerial();
 struct machineSettings loadSettings(struct machineSettings);                          //load settings set in the config file or sets to default value
 void initializeNetwork(struct machineSettings);                     //start network adapter check connectivity
 //struct machinesettings initializeNetwork(struct machinesettings);                     //start network adapter check connectivity
 void resetLCD();                              //clear text and symbols from the lcd
-void serveclient(EthernetClient client);      //recieve request from client
-char * getclientdata(EthernetClient client);
+void serveclient(EthernetClient *client);      //recieve request from client
+char * getclientdata(EthernetClient *client);
 void processrequest(char * );
 //void processrequest(char *, machinesettings)
 const char * validaterequest(char *);
-const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient client); //***handle ajax requests TODO: REMOVE ETHERNETCLIENT RETURN STRING
+const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client); //***handle ajax requests TODO: REMOVE ETHERNETCLIENT RETURN STRING
 //const char * processaction(char HTTP_req[REQ_BUF_SZ], machinesettings); //***handle ajax requests TODO: REMOVE ETHERNETCLIENT RETURN STRING
 char StrContains(char *str, char *sfind);     //check request for string
 void StrClear(char *str, char length);        //check if final line of request
 char * getw();                                //request pressure reading
 void testfirmness();                          //run the firmness testing procedure
 void idleanim();
-void sendheader(char *request,EthernetClient client);
+void sendheader(char *request,EthernetClient *client);
 /*/////////////////////////////////////////////////////////////////////////////////////////
 * MAIN
 *//////////////////////////////////////////////////////////////////////////////////////////
@@ -134,13 +135,27 @@ void setup()
     digitalWrite(HEAD1EN, LOW);
 }
 
+
 void loop()
 {
+  //int tries = 0;
+
+  //while(tries < 3)
+  //{
+    //server.statusreport();
     EthernetClient client = server.available();  // try to get client
+    //Serial.print(int(client));
     if (client)   // serve client website
     {
-        serveclient(client); 
+        serveclient(&client);
+        //break;
     }
+//    else
+//    {
+//      delay(10);
+//      tries += 1;
+//      //Serial.print (tries);
+//    }
 //    else if (digitalRead(BTN1) == 0) // continue testing firmness
 //    {
 //        testfirmness();
@@ -149,6 +164,7 @@ void loop()
 //    else { //idle animation
 //        idleanim();
 //    }
+  //}
 }
 
 /*/////////////////////////////////////////////////////////////////////////////////////////
@@ -453,7 +469,7 @@ void updatedata( char *str, File dataFile) //consider returning bool for success
   }
 }
  
-void processrequest(char * ,EthernetClient client)
+void processrequest(char * ,EthernetClient *client)
 {
   // open requested web page file
   
@@ -471,7 +487,7 @@ void processrequest(char * ,EthernetClient client)
       {
         while(webFile.available()) 
         {
-          client.write(webFile.read()); // send web page to client
+          client->write(webFile.read()); // send web page to client
 
         }
         Serial.println("file sent");
@@ -487,10 +503,10 @@ void processrequest(char * ,EthernetClient client)
   else
   { //send 404
     Serial.println("404");
-    client.println("HTTP/1.1 404 Not Found");
-    client.println("Content-Type: text/html");
-    client.println("Connnection: close");
-    client.println();
+    client->write("HTTP/1.1 404 Not Found\n");
+    client->write("Content-Type: text/html\n");
+    client->write("Connnection: close\n");
+    client->write("\n");
   }
 }
        
@@ -525,54 +541,54 @@ void validaterequest(char * HTTP_req, char * request)
   }
 }
 
-void sendheader(char *request,EthernetClient client)
+void sendheader(char *request,EthernetClient *client)
 {
   if (StrContains(request, ".htm")) //TODO fix this so that index is read correctly
   {
-    client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: text/html");
-    client.println("Connnection: close");
-    client.println();
+    client->write("HTTP/1.1 200 OK\n");
+    client->write("Content-Type: text/html\n");
+    client->write("Connnection: close\n");
+    client->write("\n");
   }
   else if (StrContains(request, ".js"))
   {
-    client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: text/js");
-    client.println("Connnection: close");
-    client.println();
+    client->write("HTTP/1.1 200 OK\n");
+    client->write("Content-Type: text/js\n");
+    client->write("Connnection: close\n");
+    client->write("\n");
   }
   else if (StrContains(request, ".css"))
   {
-    client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: text/css");
-    client.println("Connnection: close");
-    client.println();
+    client->write("HTTP/1.1 200 OK\n");
+    client->write("Content-Type: text/css\n");
+    client->write("Connnection: close\n");
+    client->write("\n");
   }
   else if (StrContains(request, ".png")
       || StrContains(request, ".ico")
       || StrContains(request, ".mp4"))
   {
-    client.println("HTTP/1.1 200 OK");
-    client.println();
+    client->write("HTTP/1.1 200 OK\n");
+    client->write("\n");
   }
 }
 
-const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient client)  //return what the client should print
+const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)  //return what the client should print
 {
  // for command_list
   char *ret_string;
   
   if (StrContains(HTTP_req, "ip")) 
   {
-    client.println(Ethernet.localIP());
+    client->write(Ethernet.localIP()+"\n");
   }
   else if (StrContains(HTTP_req, "subn")) 
   {
-    client.println(Ethernet.subnetMask());
+    client->write(Ethernet.subnetMask()+"\n");
   }
   else if (StrContains(HTTP_req, "gate")) 
   {
-    client.println(Ethernet.gatewayIP());
+    client->write(Ethernet.gatewayIP()+"\n");
   }
   else if (StrContains(HTTP_req, "changecount")) 
   {
@@ -616,7 +632,7 @@ const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient client)  //
   }
   else if (StrContains(HTTP_req, "receiveip")) 
   { //lotchangecount number
-    client.println(Ethernet.localIP());
+    client->write(Ethernet.localIP()+"\n");
   }
   else if (StrContains(HTTP_req, "a0")) 
   { 
@@ -640,7 +656,7 @@ const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient client)  //
   }
   else
   {
-    client.println("badcommand");
+    client->write("badcommand\n");
   }
   return ret_string;
 }
@@ -786,7 +802,7 @@ void testfirmness()
       }
 }
       
-void serveclient(EthernetClient client)
+void serveclient(EthernetClient *client)
 {
   char * request;
   boolean currentLineIsBlank = false;
@@ -795,9 +811,9 @@ void serveclient(EthernetClient client)
   int req_index = 0;
 
 
-  while (client.connected()) 
+  while (client->connected()) 
   {
-    if (client.available())
+    if (client->available())
     {
       request = getclientdata(client); //fills HTTP buffer
       if ((HTTP_req[req_index] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
@@ -829,15 +845,15 @@ void serveclient(EthernetClient client)
   // give the web browser time to receive the data
   delay(1);
   // close the connection:
-  client.stop();
+  client->stop();
   Serial.println("client disconnected");
 }
 
-char * getclientdata(EthernetClient client)
+char * getclientdata(EthernetClient *client)
 {
-    if (client.available()) // client data available to read
+    if (client->available()) // client data available to read
     {
-      char c = client.read(); // read 1 byte (character) from client
+      char c = client->read(); // read 1 byte (character) from client
                           // buffer first part of HTTP request in HTTP_req array (string)
                           // leave last element in array as 0 to null terminate string (REQ_BUF_SZ - 1)
 
