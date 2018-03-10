@@ -77,7 +77,7 @@ int changecount = 25;  //TODO: add to grower struct
 EthernetServer server(80);  // create a server at port 80
 File webFile;
 char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null terminated string
-char request[12] = {0}; // buffered HTTP request stored as null terminated string
+//char request[12] = {0}; // buffered HTTP request stored as null terminated string
 int request_index = 0;              // index into HTTP_req buffer
 //File dataFile;
 
@@ -138,10 +138,6 @@ void setup()
 
 void loop()
 {
-  //int tries = 0;
-
-  //while(tries < 3)
-  //{
     //server.statusreport();
     EthernetClient client = server.available();  // try to get client
     //Serial.print(int(client));
@@ -150,12 +146,6 @@ void loop()
         serveclient(&client);
         //break;
     }
-//    else
-//    {
-//      delay(10);
-//      tries += 1;
-//      //Serial.print (tries);
-//    }
 //    else if (digitalRead(BTN1) == 0) // continue testing firmness
 //    {
 //        testfirmness();
@@ -472,7 +462,7 @@ void updatedata( char *str, File dataFile) //consider returning bool for success
 void processrequest(char * ,EthernetClient *client)
 {
   // open requested web page file
-  
+  char request[12] = {0};
   Serial.print("validate request:");
   validaterequest( HTTP_req, request );
   Serial.println(request);
@@ -805,29 +795,28 @@ void testfirmness()
 void serveclient(EthernetClient *client)
 {
   char * request;
-  boolean currentLineIsBlank = false;
+  boolean currentLineIsBlank = true;
   boolean FileRequest = false;
-
   int req_index = 0;
-
-
+  
   while (client->connected()) 
   {
     if (client->available())
     {
-      request = getclientdata(client); //fills HTTP buffer
+      getclientdata(client); //fills HTTP buffer
       if ((HTTP_req[req_index] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
       {
        Serial.println("process this");
-       Serial.print(request);
-       processrequest(request, client);        //serve request
+       //Serial.print(request);
+       //processrequest(request, client);        //serve request
+       processrequest(HTTP_req, client);        //serve request
        currentLineIsBlank = false;
        req_index = 0;
        request_index = 0;
        StrClear(HTTP_req, REQ_BUF_SZ);
        break;
       }
-      else if (HTTP_req[req_index] == '\n')      // every line of text received from the client ends with \r\n
+      if (HTTP_req[req_index] == '\n')      // every line of text received from the client ends with \r\n
       {
          //last character on line of received text
          //starting new line with next character read
@@ -846,23 +835,19 @@ void serveclient(EthernetClient *client)
   delay(1);
   // close the connection:
   client->stop();
-  Serial.println("client disconnected");
+  //Serial.println("client disconnected");
 }
 
 char * getclientdata(EthernetClient *client)
 {
-    if (client->available()) // client data available to read
-    {
-      char c = client->read(); // read 1 byte (character) from client
-                          // buffer first part of HTTP request in HTTP_req array (string)
-                          // leave last element in array as 0 to null terminate string (REQ_BUF_SZ - 1)
-
-        if (request_index < (REQ_BUF_SZ - 1)) 
-        {
-          HTTP_req[request_index] = c;          // save HTTP request character
-          request_index++;
-        }
-
-    return HTTP_req;
-    }
+  char c = client->read(); // read 1 byte (character) from client
+                    // buffer first part of HTTP request in HTTP_req array (string)
+                    // leave last element in array as 0 to null terminate string (REQ_BUF_SZ - 1)
+  
+  if (request_index < (REQ_BUF_SZ - 1)) 
+  {
+    HTTP_req[request_index] = c;          // save HTTP request character
+    request_index++;
+  }
+  return HTTP_req;
 }
