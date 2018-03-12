@@ -7,7 +7,7 @@
         <link type="text/css" rel="stylesheet" href="style.css">
         <!--[if IE 6]><link type="text/css" rel="stylesheet" href="styles/ie6.css"><![endif]--><!--[if IE 7]><link type="text/css" rel="stylesheet" href="styles/ie7.css"><![endif]-->
         <style type="text/css"></style>
-        <script type = "text/javascript" src = "http://code.jquery.comm/jquery-1.7.1.min.js">
+        <script type = "text/javascript" src = "http://code.jquery.com/jquery-1.7.1.min.js">
         </script>
         <script>
             function GetInfo(destination)
@@ -24,8 +24,8 @@
                     }
                 }
                 request.open("GET","ajax_" + destination, true); <!--should I replace with request.get()
-                //request.timeout = 5000;
-                //request.ontimeout = GetInfo(destination) ;
+                request.timeout = 5000;
+                request.ontimeout = GetInfo(destination) ;
                 //request.get("ajax_" + destination);
                 request.send();
             }

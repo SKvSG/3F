@@ -81,6 +81,8 @@ char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null termina
 int request_index = 0;              // index into HTTP_req buffer
 //File dataFile;
 
+char* actions[] = { "ajax_ip", "ajax_subn", "ajax_gate", "ajax_changecount", "ajax_Grower", "ajax_Lot", "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits", "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_a1", "ajax_a2", "ajax_a3", "ajax_a4", "404"};
+
 int animation_step = 0;
 unsigned long previousMillis = 0;
 char *str;  //must be one more than message length
@@ -134,7 +136,6 @@ void setup()
     digitalWrite(EN, HIGH);
     digitalWrite(HEAD1EN, LOW);
 }
-
 
 void loop()
 {
@@ -296,7 +297,7 @@ struct machineSettings loadSettings(struct machineSettings localSettings)
     resetLCD();
     lcd.print("SUCCESS - Found settings.txt file.");
     delay(1250);
-    File settingsFile = SD.open("settings.txt", FILE_READ);
+    //File settingsFile = SD.open("settings.txt", FILE_READ);
     
   //  fgets(buff, 255, (FILE*)fp);
     // if StrContains(buff, "changecount"){
@@ -309,7 +310,7 @@ struct machineSettings loadSettings(struct machineSettings localSettings)
     // int array[100];
     // byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
     // IPAddress ip(10, 34, 10, 131);
-    // byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+
     // int CPressure = 2;
     // int FPressure = 10;
     // int Calib = 25;
@@ -327,8 +328,6 @@ void initializeNetwork(struct machineSettings localSettings)
     lcd.print(Ethernet.localIP());
     Serial.print("Server IP:      ");
     Serial.println(Ethernet.localIP());
-    //Ethernet.setRtTimeOut(500); // timeout 30ms
-    //Ethernet.setRtCount(2);
 }
 
 char * getw()
@@ -485,11 +484,16 @@ void processrequest(char * ,EthernetClient *client)
       }
     }
     
-//    else if (StrContains(request, "ajax"))   //serve ajax call
-//    {
-//      client.println(processaction(HTTP_req, client));
-//      //processaction(HTTP_req, client)
-//    }
+    else if (StrContains(request, "ajax"))   //serve ajax call
+    {
+      //client->write(processaction(HTTP_req, client)+'\n');
+      processaction(request, client);
+//    Serial.println("404");
+//    client->write("HTTP/1.1 404 Not Found\n");
+//    client->write("Content-Type: text/html\n");
+//    client->write("Connnection: close\n");
+//    client->write("\n");
+    }
   else
   { //send 404
     Serial.println("404");
@@ -567,88 +571,110 @@ const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)  /
 {
  // for command_list
   char *ret_string;
+  int i = 0;
+
+  while (strcmp(actions[i], HTTP_req) && i < (sizeof(actions)/sizeof(actions[0])) )  //findout action integer match use case
+  {
+    i++;
+      Serial.print(i);
+  }
+
   
-  if (StrContains(HTTP_req, "ip")) 
-  {
-    client->write(Ethernet.localIP()+"\n");
+  switch (i){
+
+    case 0 : //ip
+      client->print( Ethernet.localIP());
+      break;
+
+    case 1 : //subn
+      client->print( Ethernet.subnetMask());
+      break;
+
+    case 2 : //gate
+      client->print( Ethernet.gatewayIP());
+      break;
+      
+    case 3 :  //changecount
+//      client->print(localSettings.changecount);
+      client->print("25");
+      break;
+
+    case 4 :  //Grower
+      client->print("4");
+      break;
+
+    case 5 :
+      Serial.print("here");
+      client->print("5");
+      break;
+            
+    case 6 : //cpressure
+      client->print(localSettings.CPressure);
+      break;
+
+    case 7 :
+      client->print("7");
+      break;
+
+    case 8 : //fpressure
+      client->print(localSettings.FPressure);
+      break;
+            
+    case 9 : //rest
+      client->print("9");
+      break;
+
+    case 10 : //wunits
+      client->print("10");
+      break;
+
+    case 11 : //dunits
+      client->print("11");
+      break;
+
+    case 12 : //calib
+      client->print("12");
+      break;
+            
+    case 13 :
+      client->print("13");
+      break;
+
+    case 14 :
+      client->print("14");
+      break;
+
+    case 15 : //a1
+      client->print("15");
+      break;
+            
+    case 16 : //a2
+      client->print("16");
+      break;
+
+    case 17 :
+      client->print("17");
+      break;
+
+    case 18 :
+      client->print("18");
+      break;
+
+    case 19 :
+      client->print("19");
+      break;
+
+    case 20 :
+      client->print("20");
+      break;
+
+    default :
+      Serial.println("404");
+      client->write("HTTP/1.1 404 Not Found\n");
+      client->write("Content-Type: text/html\n");
+      client->write("Connnection: close\n");
+      client->write("\n");
   }
-  else if (StrContains(HTTP_req, "subn")) 
-  {
-    client->write(Ethernet.subnetMask()+"\n");
-  }
-  else if (StrContains(HTTP_req, "gate")) 
-  {
-    client->write(Ethernet.gatewayIP()+"\n");
-  }
-  else if (StrContains(HTTP_req, "changecount")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "Grower")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "Lot")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "Remaining")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "CPressure")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "FPressure")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "Rest")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "WUnits")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "DUnits")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "Calib")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "receiveip")) 
-  { //lotchangecount number
-    client->write(Ethernet.localIP()+"\n");
-  }
-  else if (StrContains(HTTP_req, "a0")) 
-  { 
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "a1")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "a2")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "a3")) 
-  {
-    return "25";
-  }
-  else if (StrContains(HTTP_req, "a4")) 
-  {
-    return "25";
-  }
-  else
-  {
-    client->write("badcommand\n");
-  }
-  return ret_string;
 }
 
 void idleanim()
@@ -806,9 +832,6 @@ void serveclient(EthernetClient *client)
       getclientdata(client); //fills HTTP buffer
       if ((HTTP_req[req_index] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
       {
-       Serial.println("process this");
-       //Serial.print(request);
-       //processrequest(request, client);        //serve request
        processrequest(HTTP_req, client);        //serve request
        currentLineIsBlank = false;
        req_index = 0;
@@ -835,7 +858,7 @@ void serveclient(EthernetClient *client)
   delay(1);
   // close the connection:
   client->stop();
-  //Serial.println("client disconnected");
+  Serial.println("client disconnected");
 }
 
 char * getclientdata(EthernetClient *client)
