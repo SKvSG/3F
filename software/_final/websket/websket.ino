@@ -13,7 +13,8 @@
 
 //Serial3.
 //altsoftserial  //recieve pin 20   //firmness head 3
-
+#define MAX_LENGTH  64
+#define MAX_SETTINGS  9
 /*/////////////////////////////////////////////////////////////////////////////////////////
 * PIN ASSIGNMENTS
 *//////////////////////////////////////////////////////////////////////////////////////////
@@ -69,6 +70,7 @@ struct machineSettings
     int DUnits = 25.4; //conversion factor * inches = mm TODO: add rod conversion factor
 } localSettings; 
 
+File settingsFile;
 static char h0str[7];  //must be one more than message length
 static char h1str[7];  //must be one more than message length
 static char h2str[7];  //must be one more than message length
@@ -82,7 +84,7 @@ int request_index = 0;              // index into HTTP_req buffer
 //File dataFile;
 
 char* actions[] = { "ajax_ip", "ajax_subn", "ajax_gate", "ajax_changecount", "ajax_Grower", "ajax_Lot", "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits", "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_a1", "ajax_a2", "ajax_a3", "ajax_a4", "404"};
-
+char* settings[] = { "changecount", "mac", "IPAddress", "FPressure", "CPressure", "Calib", "Rest", "WUnits", "DUnits"}; 
 int animation_step = 0;
 unsigned long previousMillis = 0;
 char *str;  //must be one more than message length
@@ -267,7 +269,7 @@ void initializeSD()
     }
     resetLCD();
     lcd.print("SUCCESS - SD card initialized.");
-    Serial.print("SUCCESS - SD card initialized.");
+    Serial.println("SUCCESS - SD card initialized.");
     delay(1250);
 
     if (!SD.exists("DATALOG.TXT")) {
@@ -279,15 +281,17 @@ void initializeSD()
     }
     resetLCD();
     lcd.print("SUCCESS - Found log file.");
+    Serial.println("SUCCESS - Log file found.");
     delay(1250);
 }
 
 struct machineSettings loadSettings(struct machineSettings localSettings)
 {
-    char buff[255];
-   // FILE settingsFile;
-    
+    char str[MAX_SETTINGS][MAX_LENGTH]; //longest field plus delimiter
+    //FILE settingsFile;
     // check for index.htm file
+    int i = 0;
+    char *token;
     if (!SD.exists("settings.txt")) {
         resetLCD();
         lcd.print("ERROR - Can't find settings.txt file!");
@@ -295,29 +299,95 @@ struct machineSettings loadSettings(struct machineSettings localSettings)
         return localSettings;  // can't find index file
     }
     resetLCD();
-    lcd.print("SUCCESS - Found settings.txt file.");
+    Serial.println("SUCCESS - Found settings.txt file.");
     delay(1250);
-    //File settingsFile = SD.open("settings.txt", FILE_READ);
+    settingsFile = SD.open("settings.txt");
     
-  //  fgets(buff, 255, (FILE*)fp);
-    // if StrContains(buff, "changecount"){
-        // fscanf(fp, "%s", buff);
-        ////machineSettings.changecount =  "%s" ;
-        // }
+    while( i < MAX_SETTINGS)
+    {
+      size_t n = readField(&settingsFile, str[i], sizeof(str), "\n");
+      i++;
+    }
 
-    
-        // int changecount = 25;
-    // int array[100];
-    // byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-    // IPAddress ip(10, 34, 10, 131);
+    int k = 0;
+    while(k < MAX_SETTINGS)
+    {
+      int j = 0;
+      while (  j < MAX_SETTINGS )  //findout action integer match use case
+      {
+        if ( strstr( str[k], settings[j] ) )
+        {
+          token = strtok(str[k], " ");
+          Serial.print("Setting found: ");
+          Serial.println(token);
+          switch (j)
+          {
+            case 0 : //changecount
+              //changecount = int(strchr(str[k], ' '));
+              token = strtok(NULL, " ");
+              changecount = strtol(token, (char **)NULL, 10);
+              break;
+              
+            case 1 : //mac
+              //mac = int(strchr(str[k], ' '));
+              break;
 
-    // int CPressure = 2;
-    // int FPressure = 10;
-    // int Calib = 25;
-    // int Rest = 0;
-    // int WUnits = 453.592; //conversion factor * gram = lbs
-    // int DUnits = 25.4; //conversion factor * inches = mm TODO: add rod conversion factor
+            case 2 : //IPAddress
+              //IPAddress = int(strchr(str[k], ' '));
+              break;
+              
+            case 3 : //FPressure
+             // FPressure = int(strchr(str[k], ' '));
+              break;
+
+            case 4 : //CPressure
+            //  CPressure = int(strchr(str[k], ' '));
+              break;
+              
+            case 5 : //Calib
+              //IPAddress = int(strchr(str[k], ' '));
+              break;
+              
+            case 6 : //Rest
+           //   CPressure = int(strchr(str[k], ' '));
+              break;
+
+            case 7 : //WUnits
+         //     FPressure = int(strchr(str[k], ' '));
+              break;
+              
+            case 8 : //DUnits
+          //    DUnits = int(strchr(str[k], ' '));
+              break;
+
+            default : //WUnits
+              Serial.print("error");
+          }
+          break;
+        }
+        j++;
+      }
+      k++;
+    }
+    settingsFile.close();
 }; 
+
+size_t readField(File* file, char* str, size_t size, char* delim) {
+  char ch;
+  size_t n = 0;
+  while ((n + 1) < size && file->read(&ch, 1) == 1) {
+    // Delete CR.
+    if (ch == '\r') {
+      continue;
+    }
+    str[n++] = ch;
+    if (strchr(delim, ch)) {
+        break;
+    }
+  }
+  str[n] = '\0';
+  return n;
+}
 
 void initializeNetwork(struct machineSettings localSettings)
 {
@@ -576,10 +646,9 @@ const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)  /
   while (strcmp(actions[i], HTTP_req) && i < (sizeof(actions)/sizeof(actions[0])) )  //findout action integer match use case
   {
     i++;
-      Serial.print(i);
+    Serial.print(i);
   }
 
-  
   switch (i){
 
     case 0 : //ip
