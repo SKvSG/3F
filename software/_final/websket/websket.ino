@@ -14,7 +14,9 @@
 //Serial3.
 //altsoftserial  //recieve pin 20   //firmness head 3
 #define MAX_LENGTH  64
-#define MAX_SETTINGS  9
+#define MAX_SETTINGS  8
+#define GROWER_SETTINGS  5
+#define MAX_POST_LENGTH 8
 /*/////////////////////////////////////////////////////////////////////////////////////////
 * PIN ASSIGNMENTS
 *//////////////////////////////////////////////////////////////////////////////////////////
@@ -70,7 +72,16 @@ struct machineSettings
     int DUnits = 25.4; //conversion factor * inches = mm TODO: add rod conversion factor
 } localSettings; 
 
+struct lotSettings
+{
+    int changeCount = 25;
+    char * growerName = "STEMILT";
+    int currentLot = 0;
+    int totalLot = 10;
+} growerSettings; 
+
 File settingsFile;
+File growerFile;
 static char h0str[7];  //must be one more than message length
 static char h1str[7];  //must be one more than message length
 static char h2str[7];  //must be one more than message length
@@ -79,12 +90,11 @@ int changecount = 25;  //TODO: add to grower struct
 EthernetServer server(80);  // create a server at port 80
 File webFile;
 char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null terminated string
-//char request[12] = {0}; // buffered HTTP request stored as null terminated string
 int request_index = 0;              // index into HTTP_req buffer
-//File dataFile;
-
 char* actions[] = { "ajax_ip", "ajax_subn", "ajax_gate", "ajax_changecount", "ajax_Grower", "ajax_Lot", "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits", "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_a1", "ajax_a2", "ajax_a3", "ajax_a4", "404"};
-char* settings[] = { "changecount", "mac", "IPAddress", "FPressure", "CPressure", "Calib", "Rest", "WUnits", "DUnits"}; 
+
+char* machineSets[] = { "mac", "IPAddress", "FPressure", "CPressure", "Calib", "Rest", "WUnits", "DUnits"}; 
+char* growerSets[] = { "growerName", "currentLot", "totalLot", "changeCount"}; 
 int animation_step = 0;
 unsigned long previousMillis = 0;
 char *str;  //must be one more than message length
@@ -104,9 +114,11 @@ bool new_lot = true;
 void initializePins();                        //set inputs and outputs
 void initializeSD();                          //***check for SD card and needed files on SD (neds to check for more files)
 //void initializeSerial();
-struct machineSettings loadSettings(struct machineSettings);                          //load settings set in the config file or sets to default value
+//struct machineSettings loadSettings(struct machineSettings);                          //load settings set in the config file or sets to default value
+struct machineSettings loadMachineSettings(struct machineSettings, File);                          //load settings set in the config file or sets to default value
+struct lotSettings loadGrowerSettings(struct lotSettings, File);                          //load settings set in the config file or sets to default value
 void initializeNetwork(struct machineSettings);                     //start network adapter check connectivity
-//struct machinesettings initializeNetwork(struct machinesettings);                     //start network adapter check connectivity
+struct machinesettings initializeNetwork(struct machinesettings);                     //start network adapter check connectivity
 void resetLCD();                              //clear text and symbols from the lcd
 void serveclient(EthernetClient *client);      //recieve request from client
 char * getclientdata(EthernetClient *client);
@@ -130,7 +142,8 @@ void setup()
     initializePins();
     initializeSerial();
     initializeSD();
-    localSettings = loadSettings(localSettings);
+    localSettings = loadMachineSettings(localSettings, settingsFile);
+    growerSettings = loadGrowerSettings(growerSettings, growerFile);
     initializeNetwork(localSettings);
     delay(2000);
     resetLCD();
@@ -285,11 +298,9 @@ void initializeSD()
     delay(1250);
 }
 
-struct machineSettings loadSettings(struct machineSettings localSettings)
+struct machineSettings loadMachineSettings(struct machineSettings localSettings, File settingsFile)
 {
     char str[MAX_SETTINGS][MAX_LENGTH]; //longest field plus delimiter
-    //FILE settingsFile;
-    // check for index.htm file
     int i = 0;
     char *token;
     if (!SD.exists("settings.txt")) {
@@ -303,64 +314,150 @@ struct machineSettings loadSettings(struct machineSettings localSettings)
     delay(1250);
     settingsFile = SD.open("settings.txt");
     
-    while( i < MAX_SETTINGS)
+    while( i < MAX_SETTINGS) //read file into set of strings
     {
       size_t n = readField(&settingsFile, str[i], sizeof(str), "\n");
       i++;
     }
-
     int k = 0;
-    while(k < MAX_SETTINGS)
+    while(k < MAX_SETTINGS) //turn strings into settings
     {
       int j = 0;
       while (  j < MAX_SETTINGS )  //findout action integer match use case
       {
-        if ( strstr( str[k], settings[j] ) )
+        if ( strstr( str[k], machineSets[j] ) )
         {
           token = strtok(str[k], " ");
           Serial.print("Setting found: ");
           Serial.println(token);
+          int l = 0;
           switch (j)
           {
-            case 0 : //changecount
-              //changecount = int(strchr(str[k], ' '));
+            case 0 : //mac
+              while( l < sizeof(localSettings.mac))
+              {
+                token = strtok(NULL, " ");
+                localSettings.mac[l] =  strtol(token, (char **)NULL, 16) ;
+                l++;
+              }
+              break;
+              
+            case 1 : //IPAddress
+              //token = strtok(NULL, " ");
+              break;
+
+            case 2 : //FPressure
               token = strtok(NULL, " ");
-              changecount = strtol(token, (char **)NULL, 10);
+              localSettings.FPressure = strtol(token, (char **)NULL, 10);
               break;
               
-            case 1 : //mac
-              //mac = int(strchr(str[k], ' '));
+            case 3 : //CPressure
+              token = strtok(NULL, " ");
+              localSettings.CPressure = strtol(token, (char **)NULL, 10);
               break;
 
-            case 2 : //IPAddress
-              //IPAddress = int(strchr(str[k], ' '));
+            case 4 : //Calib
+              token = strtok(NULL, " ");
+              localSettings.Calib = strtol(token, (char **)NULL, 10);
               break;
               
-            case 3 : //FPressure
-             // FPressure = int(strchr(str[k], ' '));
+            case 5 : //Rest
+              token = strtok(NULL, " ");
+              localSettings.Rest = strtol(token, (char **)NULL, 10);
+              break;
+              
+            case 6 : //WUnitst
+              token = strtok(NULL, " ");
+              localSettings.WUnits = strtol(token, (char **)NULL, 10);
               break;
 
-            case 4 : //CPressure
-            //  CPressure = int(strchr(str[k], ' '));
-              break;
-              
-            case 5 : //Calib
-              //IPAddress = int(strchr(str[k], ' '));
-              break;
-              
-            case 6 : //Rest
-           //   CPressure = int(strchr(str[k], ' '));
-              break;
-
-            case 7 : //WUnits
-         //     FPressure = int(strchr(str[k], ' '));
+            case 7 : //DUnits
+              token = strtok(NULL, " ");
+              localSettings.WUnits = strtol(token, (char **)NULL, 10);
               break;
               
             case 8 : //DUnits
           //    DUnits = int(strchr(str[k], ' '));
               break;
 
-            default : //WUnits
+            default :
+              Serial.print("error");
+          }
+          break;
+        }
+        j++;
+      }
+      k++;
+    }
+    settingsFile.close();
+    return localSettings;
+}; 
+
+struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File growerFile)
+{
+    char str[GROWER_SETTINGS][MAX_LENGTH]; //longest field plus delimiter
+    int i = 0;
+    char *token;
+    if (!SD.exists("growers.txt")) {
+        resetLCD();
+        lcd.print("ERROR - Can't find grower file!");
+        Serial.println("ERROR - Can't find grower file!");
+        delay(1250);
+        return growerSetting;  // can't find index file
+    }
+    resetLCD();
+    Serial.println("SUCCESS - Found Grower file.");
+    growerFile = SD.open("growers.txt");
+    
+    while( i < GROWER_SETTINGS) //read file into set of strings
+    {
+      size_t n = readField(&growerFile, str[i], sizeof(str), "\n");
+      i++;
+    }
+    int k = 0;
+    while(k < GROWER_SETTINGS) //turn strings into settings
+    {
+      int j = 0;
+      while (  j < GROWER_SETTINGS )  //findout action integer match use case
+      {
+        if ( strstr( str[k], growerSets[j] ) )
+        {
+          token = strtok(str[k], " ");
+          Serial.print("Grower setting found: ");
+          Serial.println(token);
+          int l = 0;
+          switch (j)
+          {
+            case 0 : //growerName
+              token = strtok(NULL, " ");
+              token = strtok(token, "\n");
+              growerSetting.growerName = token;
+              Serial.print(growerSetting.growerName);
+              break;
+              
+            case 1 : //currentLot
+              token = strtok(NULL, " ");
+              growerSetting.currentLot = strtol(token, (char **)NULL, 10);
+              //Serial.print(growerSetting.currentLot);
+              break;
+
+            case 2 : //totalLot
+              token = strtok(NULL, " ");
+              growerSetting.currentLot = strtol(token, (char **)NULL, 10);
+              Serial.print(growerSetting.totalLot);
+              break;
+              
+            case 3 : //changeCount
+              while( l < growerSetting.currentLot) //problem is currentlot is not before changecount
+              {
+                token = strtok(NULL, " ");
+                l++;
+              }
+              growerSetting.changeCount = strtol(token, (char **)NULL, 10);
+              Serial.print(growerSetting.changeCount);
+              break;
+
+            default :
               Serial.print("error");
           }
           break;
@@ -372,7 +469,8 @@ struct machineSettings loadSettings(struct machineSettings localSettings)
     settingsFile.close();
 }; 
 
-size_t readField(File* file, char* str, size_t size, char* delim) {
+size_t readField(File* file, char* str, size_t size, char* delim) 
+{
   char ch;
   size_t n = 0;
   while ((n + 1) < size && file->read(&ch, 1) == 1) {
@@ -542,27 +640,21 @@ void processrequest(char * ,EthernetClient *client)
       Serial.println(request);
       sendheader(request, client);    //send header depending on file type
       webFile = SD.open(request);
+
       if (webFile)
       {
         while(webFile.available()) 
         {
           client->write(webFile.read()); // send web page to client
-
         }
-        Serial.println("file sent");
+        //Serial.println("file sent");
         webFile.close();
       }
     }
     
     else if (StrContains(request, "ajax"))   //serve ajax call
     {
-      //client->write(processaction(HTTP_req, client)+'\n');
       processaction(request, client);
-//    Serial.println("404");
-//    client->write("HTTP/1.1 404 Not Found\n");
-//    client->write("Content-Type: text/html\n");
-//    client->write("Connnection: close\n");
-//    client->write("\n");
     }
   else
   { //send 404
@@ -586,10 +678,37 @@ void validaterequest(char * HTTP_req, char * request)
       isRequest = true;
       if (HTTP_req[i+1] == ' ') //if current letter / and next blank send index
       {
-        Serial.print("send index");
         strcpy( request, "index.htm");
         j = 9;
       }
+    }
+    else if (isRequest && HTTP_req[i] == '?') //beginning of actions
+    {
+      request[j] = 0;
+      i++;
+      char postAction[MAX_POST_LENGTH] = {0};
+      int m = 0;
+      while (HTTP_req[i] != ' ')
+      {
+        if (HTTP_req[i] != '&')      //break up the string by ampersands and request those
+        {
+          postAction[m]= HTTP_req[i] ;
+          m++;
+        }
+        else
+        {
+          Serial.println(postAction);
+          //processPostAction(postAction);
+          postAction[m] = 0;
+          m = 0;
+        } 
+        i++;
+      }
+      Serial.println(postAction);
+      //processPostAction(postAction);
+      postAction[m] = 0;
+      m = 0;
+      break;
     }
     else if (isRequest && HTTP_req[i] == ' ') //end of file name
     {
@@ -639,16 +758,16 @@ void sendheader(char *request,EthernetClient *client)
 
 const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)  //return what the client should print
 {
- // for command_list
+ //add contp and finap  and restt and the ability to find ?
   char *ret_string;
   int i = 0;
 
   while (strcmp(actions[i], HTTP_req) && i < (sizeof(actions)/sizeof(actions[0])) )  //findout action integer match use case
   {
     i++;
-    Serial.print(i);
   }
-
+  Serial.print("do this action:");
+  Serial.println(actions[i]);
   switch (i){
 
     case 0 : //ip
@@ -664,17 +783,15 @@ const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)  /
       break;
       
     case 3 :  //changecount
-//      client->print(localSettings.changecount);
-      client->print("25");
+      client->print(growerSettings.changeCount);
       break;
 
     case 4 :  //Grower
-      client->print("4");
+      client->print(growerSettings.growerName);
       break;
 
-    case 5 :
-      Serial.print("here");
-      client->print("5");
+    case 5 : //Lot
+      client->print(growerSettings.currentLot);
       break;
             
     case 6 : //cpressure
@@ -682,7 +799,7 @@ const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)  /
       break;
 
     case 7 :
-      client->print("7");
+      client->print(growerSettings.totalLot-growerSettings.currentLot);
       break;
 
     case 8 : //fpressure
@@ -690,7 +807,7 @@ const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)  /
       break;
             
     case 9 : //rest
-      client->print("9");
+      client->print(localSettings.Rest);
       break;
 
     case 10 : //wunits
@@ -927,7 +1044,7 @@ void serveclient(EthernetClient *client)
   delay(1);
   // close the connection:
   client->stop();
-  Serial.println("client disconnected");
+  //Serial.println("client disconnected");
 }
 
 char * getclientdata(EthernetClient *client)
