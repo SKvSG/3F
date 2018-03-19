@@ -4,8 +4,7 @@
 #include <SD.h>
 #include <stdio.h>
 
-// size of buffer used to capture HTTP requests
-#define REQ_BUF_SZ   2000
+#define REQ_BUF_SZ   2000   // size of buffer used to capture HTTP requests
 
 #define lcd Serial1  //pin 1 for lcd pin 0 for firmness head 1
 #define head1 Serial2
@@ -77,7 +76,7 @@ struct lotSettings
     int changeCount = 25;
     char * growerName = "STEMILT";
     int currentLot = 0;
-    int totalLot = 10;
+    int totalLot = 20;
 } growerSettings; 
 
 File settingsFile;
@@ -91,8 +90,11 @@ EthernetServer server(80);  // create a server at port 80
 File webFile;
 char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null terminated string
 int request_index = 0;              // index into HTTP_req buffer
-char* actions[] = { "ajax_ip", "ajax_subn", "ajax_gate", "ajax_changecount", "ajax_Grower", "ajax_Lot", "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits", "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_a1", "ajax_a2", "ajax_a3", "ajax_a4", "404"};
-
+char* actions[] = { "ajax_ip", "ajax_subn", "ajax_gate", "ajax_changecount", "ajax_Grower", "ajax_Lot", //TODO : change to ajaxstrings
+                    "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits", 
+                    "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_a1", "ajax_a2", 
+                    "ajax_a3", "ajax_a4", "404"};
+char* poststrings[] = {"contp", "finap", "restt"};
 char* machineSets[] = { "mac", "IPAddress", "FPressure", "CPressure", "Calib", "Rest", "WUnits", "DUnits"}; 
 char* growerSets[] = { "growerName", "currentLot", "totalLot", "changeCount"}; 
 int animation_step = 0;
@@ -144,6 +146,7 @@ void setup()
     initializeSD();
     localSettings = loadMachineSettings(localSettings, settingsFile);
     growerSettings = loadGrowerSettings(growerSettings, growerFile);
+    Serial.print(growerSettings.currentLot);
     initializeNetwork(localSettings);
     delay(2000);
     resetLCD();
@@ -428,10 +431,14 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
           int l = 0;
           switch (j)
           {
-            case 0 : //growerName
+            case 0 : //growerName             //TODO: FIX THIS
               token = strtok(NULL, " ");
               token = strtok(token, "\n");
-              growerSetting.growerName = token;
+              strncat(token, "\0", 1);
+              Serial.println(token);
+              //growerSetting.growerName = token;
+              //strcpy(growerSetting.growerName, token);
+              
               Serial.println(growerSetting.growerName);
               break;
               
@@ -443,7 +450,7 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
 
             case 2 : //totalLot
               token = strtok(NULL, " ");
-              growerSetting.currentLot = strtol(token, (char **)NULL, 10);
+              growerSetting.totalLot = strtol(token, (char **)NULL, 10);
               Serial.println(growerSetting.totalLot);
               break;
               
@@ -467,6 +474,7 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
       k++;
     }
     settingsFile.close();
+    return growerSetting;
 }; 
 
 size_t readField(File* file, char* str, size_t size, char* delim) 
@@ -666,7 +674,7 @@ void processrequest(char * ,EthernetClient *client)
   }
 }
        
-void validaterequest(char * HTTP_req, char * request)
+void validaterequest(char * HTTP_req, char * request)   //TODO : add ajaxhandler to improve efficiency
 {
   word i = 0;
   byte j = 0;
@@ -682,7 +690,7 @@ void validaterequest(char * HTTP_req, char * request)
         j = 9;
       }
     }
-    else if (isRequest && HTTP_req[i] == '?') //beginning of actions
+    else if (isRequest && HTTP_req[i] == '?') //beginning of post action
     {
       request[j] = 0;
       i++;
@@ -698,14 +706,14 @@ void validaterequest(char * HTTP_req, char * request)
         else
         {
           Serial.println(postAction);
-          //processPostAction(postAction);
+          processPostAction(postAction);
           postAction[m] = 0;
           m = 0;
         } 
         i++;
       }
       Serial.println(postAction);
-      //processPostAction(postAction);
+      processPostAction(postAction);
       postAction[m] = 0;
       m = 0;
       break;
@@ -723,7 +731,38 @@ void validaterequest(char * HTTP_req, char * request)
     i++;
   }
 }
-
+void processPostAction(char *postrequest)
+{
+  char* token;
+  int i = 0;
+  token = strtok(postrequest, "=");
+  token = strtok(NULL, "=");
+  if (token == NULL)
+  {
+    return;
+  }
+  
+  while (strcmp(poststrings[i], postrequest) && i < (sizeof(poststrings)/sizeof(poststrings[0])) )  //findout action integer match use case
+  {
+    i++;
+  }
+  Serial.print("do this action:");
+  Serial.println(poststrings[i]); //request
+  Serial.println(token);
+  switch (i)
+  {
+    case 0: //contp aka CPressure
+      localSettings.CPressure = strtol(token, (char **)NULL, 10);
+      Serial.print(localSettings.CPressure);
+      break;
+    case 1: //final pressure aka FPressure
+      localSettings.FPressure = strtol(token, (char **)NULL, 10);
+      break;
+    case 2: //rest time aka rest
+      localSettings.Rest = strtol(token, (char **)NULL, 10);
+      break;
+  }
+}
 void sendheader(char *request,EthernetClient *client)
 {
   if (StrContains(request, ".htm")) //TODO fix this so that index is read correctly
@@ -759,7 +798,7 @@ void sendheader(char *request,EthernetClient *client)
 const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)  //return what the client should print
 {
  //add contp and finap  and restt and the ability to find ?
-  char *ret_string;
+
   int i = 0;
 
   while (strcmp(actions[i], HTTP_req) && i < (sizeof(actions)/sizeof(actions[0])) )  //findout action integer match use case
