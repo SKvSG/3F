@@ -4,7 +4,8 @@
 #include <SD.h>
 #include <stdio.h>
 
-#define REQ_BUF_SZ   2000 // size of buffer used to capture HTTP requests
+// size of buffer used to capture HTTP requests
+#define REQ_BUF_SZ   2000
 
 #define lcd Serial1  //pin 1 for lcd pin 0 for firmness head 1
 #define head1 Serial2
@@ -90,10 +91,8 @@ EthernetServer server(80);  // create a server at port 80
 File webFile;
 char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null terminated string
 int request_index = 0;              // index into HTTP_req buffer
-char* actions[] = { "ajax_ip", "ajax_subn", "ajax_gate", "ajax_changecount", "ajax_Grower", "ajax_Lot", 
-                    "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits", 
-                    "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_a1", "ajax_a2", "ajax_a3", 
-                    "ajax_a4", "404"};
+char* actions[] = { "ajax_ip", "ajax_subn", "ajax_gate", "ajax_changecount", "ajax_Grower", "ajax_Lot", "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits", "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_a1", "ajax_a2", "ajax_a3", "ajax_a4", "404"};
+
 char* machineSets[] = { "mac", "IPAddress", "FPressure", "CPressure", "Calib", "Rest", "WUnits", "DUnits"}; 
 char* growerSets[] = { "growerName", "currentLot", "totalLot", "changeCount"}; 
 int animation_step = 0;
@@ -116,7 +115,7 @@ void initializePins();                        //set inputs and outputs
 void initializeSD();                          //***check for SD card and needed files on SD (neds to check for more files)
 //void initializeSerial();
 //struct machineSettings loadSettings(struct machineSettings);                          //load settings set in the config file or sets to default value
-void loadMachineSettings(struct machineSettings *, File);                          //load settings set in the config file or sets to default value
+struct machineSettings loadMachineSettings(struct machineSettings, File);                          //load settings set in the config file or sets to default value
 struct lotSettings loadGrowerSettings(struct lotSettings, File);                          //load settings set in the config file or sets to default value
 void initializeNetwork(struct machineSettings);                     //start network adapter check connectivity
 struct machinesettings initializeNetwork(struct machinesettings);                     //start network adapter check connectivity
@@ -143,9 +142,8 @@ void setup()
     initializePins();
     initializeSerial();
     initializeSD();
-    loadMachineSettings(&localSettings, settingsFile);
+    localSettings = loadMachineSettings(localSettings, settingsFile);
     growerSettings = loadGrowerSettings(growerSettings, growerFile);
-    Serial.println(growerSettings.growerName);
     initializeNetwork(localSettings);
     delay(2000);
     resetLCD();
@@ -300,7 +298,7 @@ void initializeSD()
     delay(1250);
 }
 
-void loadMachineSettings(struct machineSettings *localSettings, File settingsFile)
+struct machineSettings loadMachineSettings(struct machineSettings localSettings, File settingsFile)
 {
     char str[MAX_SETTINGS][MAX_LENGTH]; //longest field plus delimiter
     int i = 0;
@@ -309,7 +307,7 @@ void loadMachineSettings(struct machineSettings *localSettings, File settingsFil
         resetLCD();
         lcd.print("ERROR - Can't find settings.txt file!");
         delay(1250);
-//        return localSettings;  // can't find index file
+        return localSettings;  // can't find index file
     }
     resetLCD();
     Serial.println("SUCCESS - Found settings file.");
@@ -336,10 +334,10 @@ void loadMachineSettings(struct machineSettings *localSettings, File settingsFil
           switch (j)
           {
             case 0 : //mac
-              while( l < sizeof(localSettings->mac))
+              while( l < sizeof(localSettings.mac))
               {
                 token = strtok(NULL, " ");
-                localSettings->mac[l] =  strtol(token, (char **)NULL, 16) ;
+                localSettings.mac[l] =  strtol(token, (char **)NULL, 16) ;
                 l++;
               }
               break;
@@ -350,32 +348,32 @@ void loadMachineSettings(struct machineSettings *localSettings, File settingsFil
 
             case 2 : //FPressure
               token = strtok(NULL, " ");
-              localSettings->FPressure = strtol(token, (char **)NULL, 10);
+              localSettings.FPressure = strtol(token, (char **)NULL, 10);
               break;
               
             case 3 : //CPressure
               token = strtok(NULL, " ");
-              localSettings->CPressure = strtol(token, (char **)NULL, 10);
+              localSettings.CPressure = strtol(token, (char **)NULL, 10);
               break;
 
             case 4 : //Calib
               token = strtok(NULL, " ");
-              localSettings->Calib = strtol(token, (char **)NULL, 10);
+              localSettings.Calib = strtol(token, (char **)NULL, 10);
               break;
               
             case 5 : //Rest
               token = strtok(NULL, " ");
-              localSettings->Rest = strtol(token, (char **)NULL, 10);
+              localSettings.Rest = strtol(token, (char **)NULL, 10);
               break;
               
             case 6 : //WUnitst
               token = strtok(NULL, " ");
-              localSettings->WUnits = strtol(token, (char **)NULL, 10);
+              localSettings.WUnits = strtol(token, (char **)NULL, 10);
               break;
 
             case 7 : //DUnits
               token = strtok(NULL, " ");
-              localSettings->WUnits = strtol(token, (char **)NULL, 10);
+              localSettings.WUnits = strtol(token, (char **)NULL, 10);
               break;
               
             case 8 : //DUnits
@@ -392,7 +390,7 @@ void loadMachineSettings(struct machineSettings *localSettings, File settingsFil
       k++;
     }
     settingsFile.close();
-    //return localSettings;
+    return localSettings;
 }; 
 
 struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File growerFile)
@@ -469,7 +467,6 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
       k++;
     }
     settingsFile.close();
-    return growerSetting;
 }; 
 
 size_t readField(File* file, char* str, size_t size, char* delim) 
@@ -790,8 +787,7 @@ const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)  /
       break;
 
     case 4 :  //Grower
-      client->print("STEMILT");
-      Serial.print(growerSettings.growerName);
+      client->print(growerSettings.growerName);
       break;
 
     case 5 : //Lot
