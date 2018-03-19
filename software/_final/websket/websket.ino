@@ -312,7 +312,7 @@ void loadMachineSettings(struct machineSettings *localSettings, File settingsFil
 //        return localSettings;  // can't find index file
     }
     resetLCD();
-    Serial.println("SUCCESS - Found settings.txt file.");
+    Serial.println("SUCCESS - Found settings file.");
     delay(1250);
     settingsFile = SD.open("settings.txt");
     
@@ -425,8 +425,8 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
         if ( strstr( str[k], growerSets[j] ) )
         {
           token = strtok(str[k], " ");
-          Serial.print("Grower setting found: ");
-          Serial.println(token);
+          Serial.print(token);
+          Serial.print(" : ");
           int l = 0;
           switch (j)
           {
@@ -434,19 +434,19 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
               token = strtok(NULL, " ");
               token = strtok(token, "\n");
               growerSetting.growerName = token;
-              Serial.print(growerSetting.growerName);
+              Serial.println(growerSetting.growerName);
               break;
               
             case 1 : //currentLot
               token = strtok(NULL, " ");
               growerSetting.currentLot = strtol(token, (char **)NULL, 10);
-              //Serial.print(growerSetting.currentLot);
+              Serial.println(growerSetting.currentLot);
               break;
 
             case 2 : //totalLot
               token = strtok(NULL, " ");
               growerSetting.currentLot = strtol(token, (char **)NULL, 10);
-              Serial.print(growerSetting.totalLot);
+              Serial.println(growerSetting.totalLot);
               break;
               
             case 3 : //changeCount
@@ -456,11 +456,11 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
                 l++;
               }
               growerSetting.changeCount = strtol(token, (char **)NULL, 10);
-              Serial.print(growerSetting.changeCount);
+              Serial.println(growerSetting.changeCount);
               break;
 
             default :
-              Serial.print("error");
+              Serial.println("error");
           }
           break;
         }
@@ -872,7 +872,6 @@ void idleanim()
   unsigned long currentMillis = millis();
   if (currentMillis  - previousMillis >= 250 && ( animation_step == 0 ) ) 
   {
-    previousMillis = currentMillis;
     animation_step++;
     lcd.write(254);
     lcd.write(128);
@@ -880,7 +879,6 @@ void idleanim()
   }
   else if (currentMillis  - previousMillis >= 250 && ( animation_step == 1 )) 
   {
-    previousMillis = currentMillis;
     animation_step++;
     lcd.write(254);
     lcd.write(204);
@@ -888,7 +886,6 @@ void idleanim()
   }
   else if (currentMillis  - previousMillis >= 250 && ( animation_step == 2 )) 
   {
-    previousMillis = currentMillis;
     animation_step++;
     lcd.write(254);
     lcd.write(205);
@@ -896,12 +893,12 @@ void idleanim()
   }
   else if (currentMillis  - previousMillis >= 250 && ( animation_step == 3 )) 
   {
-    previousMillis = currentMillis;
     animation_step = 0;
     lcd.write(254);
     lcd.write(206);
     lcd.write("->");
   }
+  previousMillis = currentMillis;
 }
 
 void testfirmness()
@@ -1029,26 +1026,19 @@ void serveclient(EthernetClient *client)
        StrClear(HTTP_req, REQ_BUF_SZ);
        break;
       }
-      if (HTTP_req[req_index] == '\n')      // every line of text received from the client ends with \r\n
+      if (HTTP_req[req_index] == '\n')      //last character is a /n /n
       {
-         //last character on line of received text
-         //starting new line with next character read
          currentLineIsBlank = true;
       } 
-      else if (HTTP_req[req_index] != '\r') 
+      else if (HTTP_req[req_index] != '\r')         // a text character was received from client
       {
-        // a text character was received from client
         currentLineIsBlank = false;
       }
-
       req_index++;
     }// end if (client.available())
   } // end while (client.connected())
-  // give the web browser time to receive the data
-  delay(1);
-  // close the connection:
-  client->stop();
-  //Serial.println("client disconnected");
+  delay(1);  // give the web browser time to receive the data
+  client->stop();  // close the connection:
 }
 
 char * getclientdata(EthernetClient *client)
