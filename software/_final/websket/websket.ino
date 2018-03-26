@@ -62,7 +62,7 @@ struct machineSettings
 {
     int array[100];
     byte mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
- //   IPAddress ip(10, 34, 10, 131);
+
     int CPressure = 2;
     int FPressure = 10;
     int Calib = 25;
@@ -85,7 +85,7 @@ static char h0str[7];  //must be one more than message length
 static char h1str[7];  //must be one more than message length
 static char h2str[7];  //must be one more than message length
 int changecount = 25;  //TODO: add to grower struct
-
+//IPAddress ip(10, 34, 10, 131);
 EthernetServer server(80);  // create a server at port 80
 File webFile;
 char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null terminated string
@@ -127,8 +127,7 @@ char * getclientdata(EthernetClient *client);
 void processrequest(char * );
 //void processrequest(char *, machinesettings)
 const char * validaterequest(char *);
-const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client); //***handle ajax requests TODO: REMOVE ETHERNETCLIENT RETURN STRING
-//const char * processaction(char HTTP_req[REQ_BUF_SZ], machinesettings); //***handle ajax requests TODO: REMOVE ETHERNETCLIENT RETURN STRING
+void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client); //***handle ajax requests TODO: REMOVE ETHERNETCLIENT RETURN STRING
 char StrContains(char *str, char *sfind);     //check request for string
 void StrClear(char *str, char length);        //check if final line of request
 char * getw();                                //request pressure reading
@@ -157,22 +156,19 @@ void setup()
 
 void loop()
 {
-    //server.statusreport();
-    EthernetClient client = server.available();  // try to get client
-    //Serial.print(int(client));
+    EthernetClient client = server.available();  // try to get client;
     if (client)   // serve client website
     {
         serveclient(&client);
-        //break;
     }
-//    else if (digitalRead(BTN1) == 0) // continue testing firmness
-//    {
-//        testfirmness();
-//    }
-//    
-//    else { //idle animation
-//        idleanim();
-//    }
+    else if (digitalRead(BTN1) == 0) // continue testing firmness
+    {
+        testfirmness();
+    }
+    
+    else { //idle animation
+        idleanim();
+    }
   //}
 }
 
@@ -497,6 +493,7 @@ size_t readField(File* file, char* str, size_t size, char* delim)
 
 void initializeNetwork(struct machineSettings localSettings)
 {
+    //Ethernet.begin(localSettings.mac, ip);  // initialize Ethernet device
     Ethernet.begin(localSettings.mac);  // initialize Ethernet device
     server.begin();           // start to listen for clients
     resetLCD();
@@ -731,6 +728,7 @@ void validaterequest(char * HTTP_req, char * request)   //TODO : add ajaxhandler
     i++;
   }
 }
+
 void processPostAction(char *postrequest)
 {
   char* token;
@@ -741,7 +739,6 @@ void processPostAction(char *postrequest)
   {
     return;
   }
-  
   while (strcmp(poststrings[i], postrequest) && i < (sizeof(poststrings)/sizeof(poststrings[0])) )  //findout action integer match use case
   {
     i++;
@@ -763,6 +760,7 @@ void processPostAction(char *postrequest)
       break;
   }
 }
+
 void sendheader(char *request,EthernetClient *client)
 {
   if (StrContains(request, ".htm")) //TODO fix this so that index is read correctly
@@ -795,10 +793,8 @@ void sendheader(char *request,EthernetClient *client)
   }
 }
 
-const char * processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)  //return what the client should print
+void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client) 
 {
- //add contp and finap  and restt and the ability to find ?
-
   int i = 0;
 
   while (strcmp(actions[i], HTTP_req) && i < (sizeof(actions)/sizeof(actions[0])) )  //findout action integer match use case
