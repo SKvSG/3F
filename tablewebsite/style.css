@@ -8,27 +8,15 @@ h1 { font-size: 60px; margin: 35px 0 25px 0; }
 h2 { font-size: 22px; margin: 30px 0 15px 0; }
 h3 { font-size: 24px; margin: 30px 0 15px 0; }
 h3 { font-size: 18px; margin: 25px 0 10px 0; }
-h5 { font-size: 16px; margin: 20px 0 5px 0; }
-h6 { font-size: 14px; margin: 10px 0 0 0; }
 a:link, a:visited { color: #0072bc; text-decoration: none; }
 a:hover, a:active { color: #555555; }
 p { font-size: 14px; margin-bottom: 15px; }
-.title { margin-top: 0; }
-em { font-style: italic; }
-
-/*-------------------*/
-/* -- Main Layout -- */
-/*-------------------*/
-#main { clear: both; padding: 10px 0 0 0; }
-#content { float: left; width: 570px; padding: 0 100px 60px 2px; text-align: left; }
 
 /*--------------*/
 /* -- Header -- */
 /*--------------*/
 #header { padding: 8px 0 16px 0; overflow: hidden; }
 #header h1 { color: #aaa; margin: 0 0 0 0; font-size: 30px; letter-spacing: -1px; }
-#header .line { margin: 32px 0 0 0; }
-.subtitle { margin: 0 0 16px 0; }
 
 /*-----------*/
 /* -- Nav -- */
@@ -71,7 +59,9 @@ em { font-style: italic; }
   transform: scale(1);
   transition: 0.5s;
 }
-
+td:empty { /*if a table entry is empty don't display it make sure to remove entire rows*/
+ display: none;
+}
 label{
     display: inline-block;
     float: left;
@@ -90,25 +80,12 @@ input[type="radio"]:checked ~ .reveal-if-active {
 #featured-projects .image-container:hover { opacity: 0.7; }
 
 #featured-projects .featured-project-image:hover { opacity: 0.7; }
-#featured-projects .featured-project-image-l:hover { opacity: 0.7; }
-#featured-projects .featured-project-image-r:hover { opacity: 0.7; }
 
 
 #featured-projects .image-container { 
 	position: relative;
 	display: inline-block;
 	clear:both;
-}
-#featured-projects .image-container.bust-left {
-  margin-left: -12.5vw;
-  vertical-align: middle;
-  width:80%;
-} 
-
-#featured-projects .image-container.bust-right {
-  margin-right: -12.5vw;
-  vertical-align: middle;
-  width:80%;
 }
 
 #featured-projects .text-container { 
@@ -118,74 +95,16 @@ input[type="radio"]:checked ~ .reveal-if-active {
 	clear:both;
 }
 
-#featured-projects .text-container-1 {
-    position: relative;
-	text-align: justify;
-	width: 25vw;
-    margin-left: -40px;
-	padding: 0;
-	display: inline-block;
-    vertical-align: middle;
-	z-index: 1;
-	overflow: hidden;
-}
-
-#featured-projects .text-container-2 {
-    position: relative;
-	text-align: justify;
-    top: 10vw;
-	width: 25vw;
-	float: left;
-    vertical-align: middle;
-    margin-right: -20px;
-	padding: 0;
-	display: inline-block;
-	z-index: 1;
-	overflow: hidden;
-}
-
-#featured-projects .text-container-3 {
-    position: relative;
-	text-align: justify;
-	width: 25vw;
-    vertical-align: middle;
-    margin-left: -10vw;
- 	padding: 0 10vw;
-	display: inline-block;
-	z-index: 1;
-	overflow: hidden;
-}
-
 #featured-projects .text-container-4{
     position: relative;
 	text-align: justify;
 	width: 25vw;
-
     vertical-align: middle;
  	padding: 0;
 	display: inline-block;
 	z-index: 1;
 	overflow: hidden;
 }
-
-@media (max-width: 1100px) { 
-  #featured-projects .image-container .bust-left {
-    margin-left: 0;
-  }
-  
-  #featured-projects .text-container-1 {
-    width: 80%;
-  }
-  
-  #featured-projects .text-container-2 {
-    width: 80%;
-    float: none;
-    top: 0;
-  }
-  
-}
-
-
 
 #featured-projects .image-container .image-label {
     display: none;
@@ -208,69 +127,8 @@ input[type="radio"]:checked ~ .reveal-if-active {
 	display: inline-block;
 }
 
-#featured-projects .image-container-l { 
-	position: relative;
-	float: left;
-}
-
-#featured-projects .image-container-l .image-label {
-display: none;
-position: absolute;
-opacity: 0.7;
-top: 75%;
-left: -120px;
-right: 0;
-width: 96%;
-background-color: #333;
-color: #fff;
-font-size: 2em;
-line-height: 1.5em;
-box-sizing: border-box;
-text-align: center;
-}
-
-#featured-projects .image-container-l:hover .image-label {
-	display: inline-block;
-}
-#featured-projects .image-container-r { 
-	position: relative;
-	float: right;
-}
-
-#featured-projects .image-container-r .image-label {
-display: none;
-position: absolute;
-opacity: 0.7;
-top: 75%;
-left: 0;
-right: -120px;
-width: 96%;
-background-color: #333;
-color: #fff;
-font-size: 2em;
-line-height: 1.5em;
-box-sizing: border-box;
-text-align: center;
-}
-
-#featured-projects .image-container-r:hover .image-label {
-	display: inline-block;
-}
-
-
 /*--------------*/
 /* -- Footer -- */
 /*--------------*/
 #footer {position:absolute; width: 75vw; clear: both; border-top: 5px #eee solid; color: #bbb; text-align: center; }
 #frontpage-outro ol { font-size: 12px; color: #888; text-align: justify; line-height: 12px;}
-/*-----------*/
-/* -- Footer Menu -- */
-/*-----------*/
-#footnav { float: left; width: 100%; overflow: hidden; position: relative; margin: 16px 0 0 0; border-top: 5px #eee solid; border-bottom: 5px #eee solid; padding: 12px 0 8px 0; }
-#footnav ul { clear: left; float: left; margin: 0; padding: 0; position: relative; left: 50%; text-align: center; }
-#footnav ul li { float: left; list-style: none; margin: 0; padding: 0; position: relative; right: 50%; }
-#footnav ul li a {  margin: 0 0 0 1px; padding: 3px 0; font-size: 16px; color: #444; }
-#footnav ul li a:hover { color: #0072bc; }
-#footnav li span { padding: 0 20px; color: #444; font-size: 16px;}
-#footnav li a.current{ color: #0072bc; }
-#footnav p { font-size: 18px; margin: 10px 0 0 0; }

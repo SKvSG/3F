@@ -62,7 +62,6 @@ struct machineSettings
 {
     int array[100];
     byte mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-
     int CPressure = 2;
     int FPressure = 10;
     int Calib = 25;
@@ -451,11 +450,7 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
               break;
               
             case 3 : //changeCount
-              while( l < growerSetting.currentLot) //problem is currentlot is not before changecount
-              {
-                token = strtok(NULL, " ");
-                l++;
-              }
+              token = strtok(NULL, " ");
               growerSetting.changeCount = strtol(token, (char **)NULL, 10);
               Serial.println(growerSetting.changeCount);
               break;
@@ -833,7 +828,7 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
       client->print(localSettings.CPressure);
       break;
 
-    case 7 :
+    case 7 : //remaining
       client->print(growerSettings.totalLot-growerSettings.currentLot);
       break;
 

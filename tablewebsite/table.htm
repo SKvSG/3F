@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Stemilt Growers LLC</title>
+        <meta charset="utf-8">
+        <link type="text/css" rel="stylesheet" href="style.css">
+        <!--[if IE 6]><link type="text/css" rel="stylesheet" href="styles/ie6.css"><![endif]--><!--[if IE 7]><link type="text/css" rel="stylesheet" href="styles/ie7.css"><![endif]-->
+        <style type="text/css"></style>
+        <script>
+        function GetInfo(destination)
+        {
+            var request = new XMLHttpRequest();
+            request.onreadystatechange = function()
+            {
+                if (this.readyState == 4)
+                {
+                    if(this.status == 200)
+                    {
+                        if(this.responseText != null)
+                        {
+                            document.getElementById(destination).innerHTML = this.responseText;
+                        }
+                    }
+                }
+            }
+            request.open("GET","ajax_" + destination, true);
+            request.send(null);
+        }
+        </script>
+        <script>
+        function GetArray(destination)
+        {
+            var request = new XMLHttpRequest();
+            request.onreadystatechange = function()
+            {
+                if (this.readyState == 4)
+                {
+                    if(this.status == 200)
+                    {
+                        if(this.responseText != null)
+                        {
+                            document.getElementById(destination).innerHTML = this.responseText;
+                                //Query the jQuery object for the values
+                            var a0val = this.responseText.filter('a0').text();
+                            var a1val = this.responseText.filter('a1').text();
+                            var a2val = this.responseText.filter('a2').text();
+                            var a3val = this.responseText.filter('a3').text();
+                        }
+                    }
+                }
+            }
+            request.open("GET","ajax_" + destination, true);
+            request.send(null);
+        }
+        </script>
+        <script>
+          function GetCount()
+          {
+            var request = new XMLHttpRequest();
+            request.onreadystatechange = function()
+            {
+              if (this.readyState == 4){
+                if(this.status == 200){
+                  if(this.responseText != null){
+                    document.getElementById("changenumber").setAttribute("value") = this.responseText;
+                  }
+                }
+              }
+            }
+            request.open("GET","ajax_count", true);
+            request.send(null);
+          }
+        </script>
+
+
+  <title>Grower List</title>
+  <link rel="stylesheet" href="pure-min.css">
+  <style>
+    body{ padding: 1% 3%; color: rgb(119, 119, 119); }
+    h1{ color:#333 }
+  </style>
+</head>
+
+<body>
+    <div id="wrap">
+        <div id="header">
+            <h1>
+                <a href="index.htm">
+                    <video width="100px" height="64px" autoplay><source src="logo.mp4" type="video/mp4">Your browser does not support the video tag.</video>
+                </a>
+                Fast Frimness Finder
+            </h1>
+            <div id="nav">
+                <ul id="nav-pages">
+                    <li><a href="index.htm" class="current">HOME</a><span>/</span></li>
+                    <li><a href="settings.htm">MACHINE SETTINGS</a><span>/</span></li>
+                    <li><a href="about.htm">ABOUT</a></li>
+                </ul>
+            </div>
+        </div>
+        <div id="frontpage-content">
+        <script>
+            GetInfo("Grower");
+            GetInfo("Lot");
+            GetInfo("Remaining");
+            GetInfo("changecount");
+        </script>
+
+
+            <div id="frontpage-intro">
+                <p><span><strong>3F</strong></span> Grower Settings<br></p>
+            </div>
+            
+            <table id="editable" class="pure-table pure-table-bordered">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Grower</th>
+                        <th>Variety</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Stemilt</td>
+                        <td>Bings</td>
+                        <td class="uneditable">2009</td>
+                    </tr>
+                    <tr>
+                        <td id="Lot"></td>
+                        <td id="Grower"></td>
+                        <td class="uneditable" id="Remaining"></td>
+                        <td id="changecount"></td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="uneditable"></td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="uneditable"></td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="uneditable"></td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="uneditable"></td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="uneditable"></td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td class="uneditable"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+    <script src="editable.js"></script>
+ 
+
+<script>
+	$('#editable').editableTableWidget();
+	$('#editable td.uneditable').on('change', function(evt, newValue) {
+		return false;
+	});
+
+    $('#editable td').on('change', function(evt, newValue) {
+        $.post( "script.php", { value: newValue })
+            .done(function( data ) {
+                    alert( "Data Loaded: " + data );
+		});	
+        ;
+    });
+</script>
+</body>
+
+
+</html>
