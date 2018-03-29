@@ -14,7 +14,7 @@
 //altsoftserial  //recieve pin 20   //firmness head 3
 #define MAX_LENGTH  64
 #define MAX_SETTINGS  8
-#define GROWER_SETTINGS  5
+#define GROWER_SETTINGS  4
 #define MAX_POST_LENGTH 8
 /*/////////////////////////////////////////////////////////////////////////////////////////
 * PIN ASSIGNMENTS
@@ -91,8 +91,8 @@ char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null termina
 int request_index = 0;              // index into HTTP_req buffer
 char* actions[] = { "ajax_ip", "ajax_subn", "ajax_gate", "ajax_changecount", "ajax_Grower", "ajax_Lot", //TODO : change to ajaxstrings
                     "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits", 
-                    "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_a1", "ajax_a2", 
-                    "ajax_a3", "ajax_a4", "404"};
+                    "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_graph", "ajax_table", 
+                    "ajax_nexttable", "404"};
 char* poststrings[] = {"contp", "finap", "restt"};
 char* machineSets[] = { "mac", "IPAddress", "FPressure", "CPressure", "Calib", "Rest", "WUnits", "DUnits"}; 
 char* growerSets[] = { "growerName", "currentLot", "totalLot", "changeCount"}; 
@@ -117,7 +117,7 @@ void initializeSD();                          //***check for SD card and needed 
 //void initializeSerial();
 //struct machineSettings loadSettings(struct machineSettings);                          //load settings set in the config file or sets to default value
 struct machineSettings loadMachineSettings(struct machineSettings, File);                          //load settings set in the config file or sets to default value
-struct lotSettings loadGrowerSettings(struct lotSettings, File);                          //load settings set in the config file or sets to default value
+struct lotSettings loadGrowerSettings(struct lotSettings, File, int);   //load settings set in the config file or sets to default value int value represents which 
 void initializeNetwork(struct machineSettings);                     //start network adapter check connectivity
 struct machinesettings initializeNetwork(struct machinesettings);                     //start network adapter check connectivity
 void resetLCD();                              //clear text and symbols from the lcd
@@ -143,7 +143,7 @@ void setup()
     initializeSerial();
     initializeSD();
     localSettings = loadMachineSettings(localSettings, settingsFile);
-    growerSettings = loadGrowerSettings(growerSettings, growerFile);
+    growerSettings = loadGrowerSettings(growerSettings, growerFile, 1);
     Serial.print(growerSettings.currentLot);
     initializeNetwork(localSettings);
     delay(2000);
@@ -391,7 +391,7 @@ struct machineSettings loadMachineSettings(struct machineSettings localSettings,
     return localSettings;
 }; 
 
-struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File growerFile)
+struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File growerFile, int growerNumber)
 {
     char str[GROWER_SETTINGS][MAX_LENGTH]; //longest field plus delimiter
     int i = 0;
@@ -406,12 +406,18 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
     resetLCD();
     Serial.println("SUCCESS - Found Grower file.");
     growerFile = SD.open("growers.txt");
-    
-    while( i < GROWER_SETTINGS) //read file into set of strings
+
+    while (growerNumber > 0)
     {
-      size_t n = readField(&growerFile, str[i], sizeof(str), "\n");
-      i++;
+      while( i < GROWER_SETTINGS) //read file into set of strings
+      {
+        size_t n = readField(&growerFile, str[i], sizeof(str), "\n");
+        i++;
+      }
+      i = 0;
+      growerNumber--;
     }
+
     int k = 0;
     while(k < GROWER_SETTINGS) //turn strings into settings
     {
@@ -852,27 +858,35 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
       client->print("12");
       break;
             
-    case 13 :
+    case 13 : //receiveip
       client->print("13");
       break;
 
-    case 14 :
+    case 14 : //a0
       client->print("14");
       break;
 
-    case 15 : //a1
+    case 15 : //graph
       client->print("15");
       break;
             
-    case 16 : //a2
-      client->print("16");
-      break;
-
-    case 17 :
+    case 16 : //table use curly 
+      {
+        struct lotSettings nextGrower = loadGrowerSettings(growerSettings, growerFile, 3);
+        client->print(nextGrower.currentLot);
+        client->print(' ');
+        client->print(nextGrower.growerName);
+        client->print(' ');
+        client->print(nextGrower.totalLot);
+        client->print(' ');
+        client->print(nextGrower.changeCount);
+        break;
+      }
+    case 17 : //nexttable
       client->print("17");
       break;
 
-    case 18 :
+    case 18 : //a4
       client->print("18");
       break;
 

@@ -38,14 +38,15 @@
                 {
                     if(this.status == 200)
                     {
+                        var tableindex = 0;
                         if(this.responseText != null)
                         {
-                            document.getElementById(destination).innerHTML = this.responseText;
-                                //Query the jQuery object for the values
-                            var a0val = this.responseText.filter('a0').text();
-                            var a1val = this.responseText.filter('a1').text();
-                            var a2val = this.responseText.filter('a2').text();
-                            var a3val = this.responseText.filter('a3').text();
+                            while (tableindex < 4)
+                            {
+                                var res = this.responseText.split(" ");
+                                document.getElementById(destination+tableindex).innerHTML = res;
+                                tableindex++;
+                            }
                         }
                     }
                 }
@@ -105,6 +106,7 @@
             GetInfo("Lot");
             GetInfo("Remaining");
             GetInfo("changecount");
+            GetArray("table");
         </script>
 
 
@@ -135,10 +137,10 @@
                         <td id="changecount"></td>
                     </tr>
                     <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td class="uneditable"></td>
+                        <td id="table0"></td>
+                        <td id="table1"></td>
+                        <td id="table2"></td>
+                        <td class="uneditable" id="table3"></td>
                     </tr>
                     <tr>
                         <td></td>
