@@ -73,10 +73,12 @@ struct machineSettings
 struct lotSettings
 {
     int changeCount = 25;
-    char * growerName = "STEMILT";
+    char * growerName = "STEMILT\0";
     int currentLot = 0;
     int totalLot = 20;
 } growerSettings; 
+
+struct lotSettings emptySettings = {0,"",0,0}; 
 
 File settingsFile;
 File growerFile;
@@ -84,6 +86,7 @@ static char h0str[7];  //must be one more than message length
 static char h1str[7];  //must be one more than message length
 static char h2str[7];  //must be one more than message length
 int changecount = 25;  //TODO: add to grower struct
+int requestint = 1;
 //IPAddress ip(10, 34, 10, 131);
 EthernetServer server(80);  // create a server at port 80
 File webFile;
@@ -91,7 +94,7 @@ char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null termina
 int request_index = 0;              // index into HTTP_req buffer
 char* actions[] = { "ajax_ip", "ajax_subn", "ajax_gate", "ajax_changecount", "ajax_Grower", "ajax_Lot", //TODO : change to ajaxstrings
                     "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits", 
-                    "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_graph", "ajax_table", 
+                    "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_graph", "ajax_table0", 
                     "ajax_nexttable", "404"};
 char* poststrings[] = {"contp", "finap", "restt"};
 char* machineSets[] = { "mac", "IPAddress", "FPressure", "CPressure", "Calib", "Rest", "WUnits", "DUnits"}; 
@@ -406,18 +409,22 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
     resetLCD();
     Serial.println("SUCCESS - Found Grower file.");
     growerFile = SD.open("growers.txt");
-
+    int n = 0;
     while (growerNumber > 0)
     {
-      while( i < GROWER_SETTINGS) //read file into set of strings
+      while( i < GROWER_SETTINGS) //read file into set of strings 
       {
-        size_t n = readField(&growerFile, str[i], sizeof(str), "\n");
+        n = readField(&growerFile, str[i], sizeof(str), "\n");
+        Serial.print(n);
         i++;
       }
       i = 0;
       growerNumber--;
     }
-
+    if(n == 0)
+    {
+      return emptySettings;
+    }
     int k = 0;
     while(k < GROWER_SETTINGS) //turn strings into settings
     {
@@ -429,7 +436,6 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
           token = strtok(str[k], " ");
           Serial.print(token);
           Serial.print(" : ");
-          int l = 0;
           switch (j)
           {
             case 0 : //growerName             //TODO: FIX THIS
@@ -437,7 +443,7 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
               token = strtok(token, "\n");
               strncat(token, "\0", 1);
               Serial.println(token);
-              //growerSetting.growerName = token;
+              growerSetting.growerName = token;
               //strcpy(growerSetting.growerName, token);
               
               Serial.println(growerSetting.growerName);
@@ -474,10 +480,10 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
     return growerSetting;
 }; 
 
-size_t readField(File* file, char* str, size_t size, char* delim) 
+int readField(File* file, char* str, size_t size, char* delim) 
 {
   char ch;
-  size_t n = 0;
+  int n = 0;
   while ((n + 1) < size && file->read(&ch, 1) == 1) {
     // Delete CR.
     if (ch == '\r') {
@@ -870,24 +876,58 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
       client->print("15");
       break;
             
-    case 16 : //table use curly 
-      {
-        struct lotSettings nextGrower = loadGrowerSettings(growerSettings, growerFile, 3);
-        client->print(nextGrower.currentLot);
-        client->print(' ');
-        client->print(nextGrower.growerName);
-        client->print(' ');
-        client->print(nextGrower.totalLot);
-        client->print(' ');
-        client->print(nextGrower.changeCount);
-        break;
-      }
-    case 17 : //nexttable
-      client->print("17");
+    case 16 : //table0 reset table TODO : FIX THIS SO THAT IT DISPLAYS AVAILABLE PAGES
+      requestint = 0;
+      //current index
+      client->print("#");
+      client->print(' ');
+      client->print("Grower");
+      client->print(' ');
+      client->print("Variety");
+      client->print(' ');
+      client->print("Time");
+      client->print(' ');
       break;
 
-    case 18 : //a4
-      client->print("18");
+    case 17 : //nexttable
+        requestint++;   //requestint not a usefull because they dont reset
+        {
+          Serial.print(requestint);
+          struct lotSettings nextGrower = loadGrowerSettings(growerSettings, growerFile, requestint);
+          if (strlen(nextGrower.growerName))
+          {
+            client->print(nextGrower.currentLot);
+            client->print(' ');
+            client->print(nextGrower.growerName);
+            client->print(' ');
+            client->print(nextGrower.totalLot);
+            client->print(' ');
+            client->print(nextGrower.changeCount);
+          }
+          else
+          {
+            client->print("");
+            client->print(' ');
+            client->print("");
+            client->print(' ');
+            client->print("");
+            client->print(' ');
+            client->print("");
+          }
+        }
+        break;
+        
+    case 18 : //table1
+      requestint = 0;
+      //
+      client->print("0");
+      client->print(' ');
+      client->print(requestint);
+      client->print(' ');
+      client->print("16");
+      client->print(' ');
+      client->print("24");
+      client->print(' ');
       break;
 
     case 19 :

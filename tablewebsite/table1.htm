@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Stemilt Growers LLC</title>
+        <meta charset="utf-8">
+        <link type="text/css" rel="stylesheet" href="style.css">
+        <!--[if IE 6]><link type="text/css" rel="stylesheet" href="styles/ie6.css"><![endif]--><!--[if IE 7]><link type="text/css" rel="stylesheet" href="styles/ie7.css"><![endif]-->
+        <style type="text/css"></style>
+        <script>
+        function GetInfo(destination)
+        {
+            var request = new XMLHttpRequest();
+            request.onreadystatechange = function()
+            {
+                if (this.readyState == 4)
+                {
+                    if(this.status == 200)
+                    {
+                        if(this.responseText != null)
+                        {
+                            document.getElementById(destination).innerHTML = this.responseText;
+                        }
+                    }
+                }
+            }
+            request.open("GET","ajax_" + destination, true);
+            request.send(null);
+        }
+        </script>
+        <script>
+        function GetArray(arrayname,destination)
+        {
+            var request = new XMLHttpRequest();
+            request.onreadystatechange = function()
+            {
+                if (this.readyState == 4)
+                {
+                    if(this.status == 200)
+                    {
+
+                        if(this.responseText != null)
+                        {
+                            var tableindex = 0;
+                        
+                            while (tableindex < 4) //the number of entries in a row
+                            {
+                                var res = this.responseText.split(" ");
+                                document.getElementById(destination + tableindex).innerHTML = res[tableindex];
+                                tableindex++;
+                            }
+                        }
+                    }
+                }
+            }
+            request.open("GET","ajax_" + arrayname, true);
+            request.send(null);
+            return $.ajax();
+        }
+        </script>
+        <script>
+          function GetCount()
+          {
+            var request = new XMLHttpRequest();
+            request.onreadystatechange = function()
+            {
+              if (this.readyState == 4){
+                if(this.status == 200){
+                  if(this.responseText != null){
+                    document.getElementById("changenumber").setAttribute("value") = this.responseText;
+                  }
+                }
+              }
+            }
+            request.open("GET","ajax_count", true);
+            request.send(null);
+          }
+        </script>
+        <script>
+        function getManyArrays() {
+            GetArray("table", "tablea").then(GetArray("nexttable", "tableb")).then(GetArray("nexttable", "tablec"));
+        }
+        </script>
+  <title>Grower List</title>
+  <link rel="stylesheet" href="pure-min.css">
+  <style>
+    body{ padding: 1% 3%; color: rgb(119, 119, 119); }
+    h1{ color:#333 }
+  </style>
+</head>
+
+<body>
+    <div id="wrap">
+        <div id="header">
+            <h1>
+                <a href="index.htm">
+                    <video width="100px" height="64px" autoplay><source src="logo.mp4" type="video/mp4">Your browser does not support the video tag.</video>
+                </a>
+                Fast Frimness Finder
+            </h1>
+            <div id="nav">
+                <ul id="nav-pages">
+                    <li><a href="index.htm" class="current">HOME</a><span>/</span></li>
+                    <li><a href="settings.htm">MACHINE SETTINGS</a><span>/</span></li>
+                    <li><a href="about.htm">ABOUT</a></li>
+                </ul>
+            </div>
+        </div>
+        <div id="frontpage-content">
+        <script>
+        getManyArrays();
+        </script>
+
+
+            <div id="frontpage-intro">
+                <p><span><strong>3F</strong></span> Grower Settings<br></p>
+            </div>
+            
+            <table id="editable" class="pure-table pure-table-bordered">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Grower</th>
+                        <th>Variety</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td id="tablea0"></td>
+                        <td id="tablea1"></td>
+                        <td class="uneditable" id="tablea2"></td>
+                        <td id="tablea3"></td>
+                    </tr>
+                    <tr>
+                        <td id="tableb0"></td>
+                        <td id="tableb1"></td>
+                        <td class="uneditable" id="tableb2"></td>
+                        <td id="tableb3"></td>
+                    </tr>
+                    <tr>
+                        <td id="tablec0"></td>
+                        <td id="tablec1"></td>
+                        <td id="tablec2"></td>
+                        <td class="uneditable" id="tablec3"></td>
+                    </tr>
+                    <tr>
+                        <td id="tabled0"></td>
+                        <td id="tabled1"></td>
+                        <td id="tabled2"></td>
+                        <td class="uneditable" id="tabled3"></td>
+                    </tr>
+                    <label>&zwnj;</label><input type="submit" value="Next"><input type="submit" value="Previous">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+    <script src="editable.js"></script>
+ 
+
+<script>
+	$('#editable').editableTableWidget();
+	$('#editable td.uneditable').on('change', function(evt, newValue) {
+		return false;
+	});
+
+    $('#editable td').on('change', function(evt, newValue) {
+        $.post( "script.php", { value: newValue })
+            .done(function( data ) {
+                    alert( "Data Loaded: " + data );
+		});	
+        ;
+    });
+</script>
+</body>
+
+
+</html>

@@ -7,6 +7,7 @@
         <link type="text/css" rel="stylesheet" href="style.css">
         <!--[if IE 6]><link type="text/css" rel="stylesheet" href="styles/ie6.css"><![endif]--><!--[if IE 7]><link type="text/css" rel="stylesheet" href="styles/ie7.css"><![endif]-->
         <style type="text/css"></style>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js">
         <script>
         function GetInfo(destination)
         {
@@ -29,31 +30,56 @@
         }
         </script>
         <script>
-        function GetArray(destination)
+        function getArrayWithCallback(arrayName, destination, cb)
         {
-            var request = new XMLHttpRequest();
-            request.onreadystatechange = function()
+            function getArrayWithCallbackInner(jqXHR, status) 
             {
-                if (this.readyState == 4)
+                console.log(jqXHR);
+                var tableindex = 0;
+                        
+                while (tableindex < 4) //the number of entries in a row
                 {
-                    if(this.status == 200)
-                    {
-                        var tableindex = 0;
-                        if(this.responseText != null)
-                        {
-                            while (tableindex < 4)
-                            {
-                                var res = this.responseText.split(" ");
-                                document.getElementById(destination+tableindex).innerHTML = res;
-                                tableindex++;
-                            }
-                        }
-                    }
+                    var res = jqXHR.responseText.split(" ");
+                    document.getElementById(destination + tableindex).innerHTML = res[tableindex];
+                    tableindex++;
+                }
+                if (cb){
+                    cb();
                 }
             }
-            request.open("GET","ajax_" + destination, true);
-            request.send(null);
+            return getArrayWithCallbackInner;
         }
+        </script>
+        <script>
+        function requestArray(arrayName, destination, cb) 
+        {
+        $.ajax({
+            url: "ajax_" + arrayName,
+            method: "GET",
+            complete: getArrayWithCallback(arrayName, destination, cb)
+            })
+        }
+        </script>
+        <script>
+        function requestArrayClosure(arrayName, destination, cb) {
+            function requestArrayClosureInner() {
+                return requestArray(arrayName, destination, cb);
+            }
+            return requestArrayClosureInner;
+        }
+        </script>
+        <script>
+        function getManyArrays() {
+            requestArray("table0", "tablenum",
+                requestArrayClosure("nexttable", "tablea",
+                    requestArrayClosure("nexttable", "tableb",
+                        requestArrayClosure("nexttable", "tablec",
+                            requestArrayClosure("nexttable", "tabled",
+                                requestArrayClosure("nexttable", "tablee",
+                                    requestArrayClosure("nexttable", "tablef",
+                                        requestArrayClosure("nexttable", "tableg"))))))));
+        }
+            
         </script>
         <script>
           function GetCount()
@@ -73,8 +99,8 @@
             request.send(null);
           }
         </script>
-
-
+        <script>
+        </script>
   <title>Grower List</title>
   <link rel="stylesheet" href="pure-min.css">
   <style>
@@ -83,7 +109,7 @@
   </style>
 </head>
 
-<body>
+<body onclick="myFunction()">
     <div id="wrap">
         <div id="header">
             <h1>
@@ -101,13 +127,9 @@
             </div>
         </div>
         <div id="frontpage-content">
-        <script>
-            GetInfo("Grower");
-            GetInfo("Lot");
-            GetInfo("Remaining");
-            GetInfo("changecount");
-            GetArray("table");
-        </script>
+            <script>
+                getManyArrays();
+            </script>
 
 
             <div id="frontpage-intro">
@@ -116,97 +138,94 @@
             
             <table id="editable" class="pure-table pure-table-bordered">
                 <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Grower</th>
-                        <th>Variety</th>
-                        <th>Time</th>
+                    <tr><!--column names-->
+                        <th id = "tablenum0"></th>
+                        <th id = "tablenum1"></th>
+                        <th id = "tablenum2"></th>
+                        <th id = "tablenum3"></th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>1</td>
-                        <td>Stemilt</td>
-                        <td>Bings</td>
-                        <td class="uneditable">2009</td>
+                    <tr><!--first row-->
+                        <td id="tablea0" onclick="GetInfo(tablea0)"></td>
+                        <td id="tablea1"></td>
+                        <td class="uneditable" id="tablea2"></td>
+                        <td id="tablea3"></td>
+                    </tr>
+                    <tr><!--second row-->
+                        <td id="tableb0"></td>
+                        <td id="tableb1"></td>
+                        <td class="uneditable" id="tableb2"></td>
+                        <td id="tableb3"></td>
+                    </tr>
+                    <tr><!--third row-->
+                        <td id="tablec0"></td>
+                        <td id="tablec1"></td>
+                        <td id="tablec2"></td>
+                        <td class="uneditable" id="tablec3"></td>
+                    </tr>
+                    <tr><!--fourth row-->
+                        <td id="tabled0"></td>
+                        <td id="tabled1"></td>
+                        <td id="tabled2"></td>
+                        <td class="uneditable" id="tabled3"></td>
                     </tr>
                     <tr>
-                        <td id="Lot"></td>
-                        <td id="Grower"></td>
-                        <td class="uneditable" id="Remaining"></td>
-                        <td id="changecount"></td>
+                        <td id="tablee0"></td>
+                        <td id="tablee1"></td>
+                        <td class="uneditable" id="tablee2"></td>
+                        <td id="tablee3"></td>
                     </tr>
                     <tr>
-                        <td id="table0"></td>
-                        <td id="table1"></td>
-                        <td id="table2"></td>
-                        <td class="uneditable" id="table3"></td>
+                        <td id="tablef0"></td>
+                        <td id="tablef1"></td>
+                        <td class="uneditable" id="tablef2"></td>
+                        <td id="tablef3"></td>
                     </tr>
                     <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td class="uneditable"></td>
+                        <td id="tableg0"></td>
+                        <td id="tableg1"></td>
+                        <td id="tableg2"></td>
+                        <td class="uneditable" id="tableg3"></td>
                     </tr>
                     <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td class="uneditable"></td>
-                    </tr>
-                    <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                    <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                    <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td class="uneditable"></td>
-                    </tr>
-                    <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td class="uneditable"></td>
-                    </tr>
-                    <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td class="uneditable"></td>
+                        <td id="tableh0">&zwnj;</td>
+                        <td id="tableh1">&zwnj;</td>
+                        <td id="tableh2">&zwnj;</td>
+                        <td class="uneditable" id="tableh3">&zwnj;</td>
                     </tr>
                 </tbody>
+                <input type="submit" value="Refresh List" onclick="getManyArrays()">
+                <label>&zwnj;</label>
             </table>
+            <p id="demo"></p>
         </div>
     </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-
     <script src="editable.js"></script>
- 
+    
+
 
 <script>
-	$('#editable').editableTableWidget();
-	$('#editable td.uneditable').on('change', function(evt, newValue) {
-		return false;
-	});
-
-    $('#editable td').on('change', function(evt, newValue) {
-        $.post( "script.php", { value: newValue })
-            .done(function( data ) {
-                    alert( "Data Loaded: " + data );
-		});	
-        ;
-    });
+function myFunction() {
+    var x = document.activeElement.tagName;
+    document.getElementById("demo").innerHTML = x;
+}
 </script>
+    <script>
+        $('#editable').editableTableWidget();
+        $('#editable td.uneditable').on('change', function(evt, newValue) {
+            return false;
+        });
+
+        $('#editable td').on('change', function(evt, newValue) {
+            $.post( "ajax_update", { value: document.activeElement.parentElement.id })          
+                .done(function( data ) {
+                        alert( "Data Loaded: " + data );
+            });	
+            ;
+        });
+    </script>
 </body>
 
 
