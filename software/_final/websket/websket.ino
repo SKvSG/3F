@@ -23,10 +23,10 @@
 //int FirmnessHead1RX = 0;
 //int LCDTX = 1;
 //int ?? = 2;
-//int BTN1 = 3;
+int BTN1 = 3;
 //int SDCS = 4;
 //int ?? = 5;
-int BTN1 = 6;
+//int BTN1 = 6;
 //int FirmnessHead3RX = 7;
 //int LeftPad?? = 8;
 //int WRESET = 9;
@@ -158,12 +158,13 @@ void setup()
 
 void loop()
 {
-    EthernetClient client = server.available();  // try to get client;
-    if (client)   // serve client website
-    {
-        serveclient(&client);
-    }
-    else if (digitalRead(BTN1) == 0) // continue testing firmness
+//    EthernetClient client = server.available();  // try to get client;
+//    if (client)   // serve client website
+//    {
+//        serveclient(&client);
+//    }
+   // else if (digitalRead(BTN1) == 0) // continue testing firmness
+    if (digitalRead(BTN1) == 0) // continue testing firmness
     {
         testfirmness();
     }
