@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "HX711.h"
-
+ 
 #define DOUT  2
 #define CLK  3
 #define W_INT 4
@@ -157,7 +157,7 @@ void loop() {
   else
   {
     scale_weight = scale.get_units();
-    //Serial.println(scale_weight);
+    Serial.println(scale_weight);
   }
   if( scale_weight >= master_weight && (masterflag == 1))
   {

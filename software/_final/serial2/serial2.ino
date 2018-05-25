@@ -50,7 +50,7 @@ void setup() {
   Serial.begin(9600);
   slave.begin(9600);
   mySerial.begin(9600);
-  digitalWrite(dir, HIGH);
+  digitalWrite(dir, LOW);
   digitalWrite(EN, LOW);
   delay(1000);
   Serial.write("Push Button to  Begin Test ->");
@@ -70,7 +70,7 @@ void topfind()
 
 void StepFast()    // Moving forward at slow step mode.
 {
-  digitalWrite(dir, HIGH); //Pull direction pin low to move down
+  digitalWrite(dir, LOW); //Pull direction pin low to move down
   digitalWrite(MS1, HIGH); //Pull MS1, and MS2 high to set logic to fullstep resolution
   digitalWrite(MS2, LOW);
   digitalWrite(MS3, LOW);
@@ -86,7 +86,7 @@ void StepFast()    // Moving forward at slow step mode.
 int StepSlow()    // Moving forward at slow step mode.
 {
   int count = 0;
-  digitalWrite(dir, HIGH); //Pull direction pin low to move down
+  digitalWrite(dir, LOW); //Pull direction pin low to move down
   digitalWrite(MS1, HIGH); //Pull MS1, and MS2 high to set logic to 1/8th microstep resolution
   digitalWrite(MS2, HIGH);
   digitalWrite(MS3, HIGH);
@@ -104,7 +104,7 @@ int StepSlow()    // Moving forward at slow step mode.
 int ReverseSteps()
 {
   int count = 0;
-  digitalWrite(dir, LOW); //Pull direction pin high to move in "reverse"
+  digitalWrite(dir, HIGH); //Pull direction pin high to move in "reverse"
   digitalWrite(MS1, LOW); //Pull MS1, and MS2 high to set logic to fullstep resolution
   digitalWrite(MS2, LOW);
   digitalWrite(MS3, LOW);
@@ -122,7 +122,7 @@ int ReverseSteps()
 void BackJump()
 {
   int i = 0;
-  digitalWrite(dir, LOW); //Pull direction pin high to move in "reverse"
+  digitalWrite(dir, HIGH); //Pull direction pin high to move in "reverse"
   digitalWrite(MS1, LOW); //Pull MS1, and MS2 high to set logic to fullstep resolution
   digitalWrite(MS2, LOW);
   digitalWrite(MS3, LOW);

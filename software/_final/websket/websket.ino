@@ -17,17 +17,17 @@
 #define GROWER_SETTINGS  4
 #define MAX_POST_LENGTH 8
 /*/////////////////////////////////////////////////////////////////////////////////////////
-* PIN ASSIGNMENTS
+  PIN ASSIGNMENTS
 *//////////////////////////////////////////////////////////////////////////////////////////
 
-//int FirmnessHead1RX = 0;
+int FirmnessHead1RX = 0;
 //int LCDTX = 1;
 //int ?? = 2;
 int BTN1 = 3;
 //int SDCS = 4;
 //int ?? = 5;
 //int BTN1 = 6;
-//int FirmnessHead3RX = 7;
+int FirmnessHead3RX = 7;
 //int LeftPad?? = 8;
 //int WRESET = 9;
 //int WCS = 10;
@@ -43,42 +43,42 @@ int EN = 19;
 int HEAD0EN = 20;
 int HEAD1EN = 21;
 int HEAD2EN = 22;
-int BTN2 = 23;
-//int ?? = 24;
-//int ?? = 25;
-//int FirmnessHead2RX = 26;
+//int BTN2 = 23;
+int BTN2 = 24;
+int SOLO = 27;    //solenoid output
+int FirmnessHead2RX = 26;
 //int ?? = 27;
-//int ?? = 28;
+int PRES = 28; //photoresistor input
 //int ?? = 29;
 //int ?? = 30;
-//int FirmnessHead2TX = 31;
+int FirmnessHead2TX = 31;
 //int ?? = 32;
 //int ?? = 33;
 
 /*/////////////////////////////////////////////////////////////////////////////////////////
-* GLOBAL VARIABLES
+  GLOBAL VARIABLES
 *//////////////////////////////////////////////////////////////////////////////////////////
 struct machineSettings
 {
-    int array[100];
-    byte mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-    int CPressure = 2;
-    int FPressure = 10;
-    int Calib = 25;
-    int Rest = 0;
-    int WUnits = 453.592; //conversion factor * gram = lbs
-    int DUnits = 25.4; //conversion factor * inches = mm TODO: add rod conversion factor
-} localSettings; 
+  int array[100];
+  byte mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+  int CPressure = 2;
+  int FPressure = 10;
+  int Calib = 25;
+  int Rest = 0;
+  int WUnits = 453.592; //conversion factor * gram = lbs
+  int DUnits = 25.4; //conversion factor * inches = mm TODO: add rod conversion factor
+} localSettings;
 
 struct lotSettings
 {
-    int changeCount = 25;
-    char * growerName = "STEMILT\0";
-    int currentLot = 0;
-    int totalLot = 20;
-} growerSettings; 
+  int changeCount = 25;
+  char * growerName = "STEMILT\0";
+  int currentLot = 0;
+  int totalLot = 20;
+} growerSettings;
 
-struct lotSettings emptySettings = {0,"",0,0}; 
+struct lotSettings emptySettings = {0, "", 0, 0};
 
 File settingsFile;
 File growerFile;
@@ -93,12 +93,13 @@ File webFile;
 char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null terminated string
 int request_index = 0;              // index into HTTP_req buffer
 char* actions[] = { "ajax_ip", "ajax_subn", "ajax_gate", "ajax_changecount", "ajax_Grower", "ajax_Lot", //TODO : change to ajaxstrings
-                    "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits", 
-                    "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_graph", "ajax_table0", 
-                    "ajax_nexttable", "404"};
+                    "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits",
+                    "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_graph", "ajax_table0",
+                    "ajax_nexttable", "404"
+                  };
 char* poststrings[] = {"contp", "finap", "restt"};
-char* machineSets[] = { "mac", "IPAddress", "FPressure", "CPressure", "Calib", "Rest", "WUnits", "DUnits"}; 
-char* growerSets[] = { "growerName", "currentLot", "totalLot", "changeCount"}; 
+char* machineSets[] = { "mac", "IPAddress", "FPressure", "CPressure", "Calib", "Rest", "WUnits", "DUnits"};
+char* growerSets[] = { "growerName", "currentLot", "totalLot", "changeCount"};
 int animation_step = 0;
 unsigned long previousMillis = 0;
 char *str;  //must be one more than message length
@@ -113,14 +114,14 @@ bool new_lot = true;
 
 
 /*/////////////////////////////////////////////////////////////////////////////////////////
-* FUNCTION DECLARATIONS
+  FUNCTION DECLARATIONS
 *//////////////////////////////////////////////////////////////////////////////////////////
 void initializePins();                        //set inputs and outputs
 void initializeSD();                          //***check for SD card and needed files on SD (neds to check for more files)
-//void initializeSerial();
+void initializeSerial();
 //struct machineSettings loadSettings(struct machineSettings);                          //load settings set in the config file or sets to default value
 struct machineSettings loadMachineSettings(struct machineSettings, File);                          //load settings set in the config file or sets to default value
-struct lotSettings loadGrowerSettings(struct lotSettings, File, int);   //load settings set in the config file or sets to default value int value represents which 
+struct lotSettings loadGrowerSettings(struct lotSettings, File, int);   //load settings set in the config file or sets to default value int value represents which
 void initializeNetwork(struct machineSettings);                     //start network adapter check connectivity
 struct machinesettings initializeNetwork(struct machinesettings);                     //start network adapter check connectivity
 void resetLCD();                              //clear text and symbols from the lcd
@@ -135,113 +136,145 @@ void StrClear(char *str, char length);        //check if final line of request
 char * getw();                                //request pressure reading
 void testfirmness();                          //run the firmness testing procedure
 void idleanim();
-void sendheader(char *request,EthernetClient *client);
+void sendheader(char *request, EthernetClient *client);
 /*/////////////////////////////////////////////////////////////////////////////////////////
-* MAIN
+  MAIN
 *//////////////////////////////////////////////////////////////////////////////////////////
 void setup()
 {
-    //initializeLCD();
-    initializePins();
-    initializeSerial();
-    initializeSD();
-    localSettings = loadMachineSettings(localSettings, settingsFile);
-    growerSettings = loadGrowerSettings(growerSettings, growerFile, 1);
-    Serial.print(growerSettings.currentLot);
-    initializeNetwork(localSettings);
-    delay(2000);
-    resetLCD();
-    lcd.write("Push Button to  Begin Test ->");
-    digitalWrite(EN, HIGH);
-    digitalWrite(HEAD1EN, LOW);
+  //initializeLCD();
+  initializePins();
+  initializeSerial();
+  initializeSD();
+  localSettings = loadMachineSettings(localSettings, settingsFile);
+  growerSettings = loadGrowerSettings(growerSettings, growerFile, 1);
+  Serial.print(growerSettings.currentLot);
+  //initializeNetwork(localSettings);
+  //delay(2000);
+  resetLCD();
+  lcd.write("Push Button to  Begin Test ->");
+  Serial.write("Push Button to  Begin Test ->");
+  digitalWrite(EN, HIGH);
+  //getw();
+  digitalWrite(HEAD0EN, LOW);
+  digitalWrite(HEAD1EN, LOW);
+  digitalWrite(HEAD2EN, LOW);
+  digitalWrite(FirmnessHead1RX, LOW);
+  digitalWrite(FirmnessHead2RX, LOW);
+  digitalWrite(FirmnessHead3RX, LOW);
 }
 
 void loop()
 {
-//    EthernetClient client = server.available();  // try to get client;
-//    if (client)   // serve client website
-//    {
-//        serveclient(&client);
-//    }
-   // else if (digitalRead(BTN1) == 0) // continue testing firmness
-    if (digitalRead(BTN1) == 0) // continue testing firmness
-    {
-        testfirmness();
-    }
-    
-    else { //idle animation
-        idleanim();
-    }
+  //    EthernetClient client = server.available();  // try to get client;
+  //    if (client)   // serve client website
+  //    {
+  //        serveclient(&client);
+  //    }
+  //    else if (digitalRead(BTN1) == 0) // continue testing firmness
+//  if (digitalRead(BTN1) == 1) // continue testing firmness
+//  {
+//    Serial.write("test firmness ");
+    testfirmness();
+//  }
+
+//  else { //idle animation
+    //delay(2000);
+    //getw();
+//    Serial.println(analogRead(PRES));
+//    digitalWrite(HEAD0EN, 1);
+//    delay(100);
+//    digitalWrite(HEAD0EN, 0);
+//    delay(100);
+//    digitalWrite(HEAD1EN, 1);
+//    delay(100);
+//    digitalWrite(HEAD1EN, 0);
+//    delay(100);
+//    digitalWrite(HEAD2EN, 1);
+//    delay(100);
+//    digitalWrite(HEAD2EN, 0);
+//    delay(100);
+    //Serial.print("on");
+    //findposition();
+    //digitalWrite(SOLO, 1);
+    //delay(1000);
+    //digitalWrite(SOLO, 0);
+    //Serial.println(analogRead(PRES));
+    //Serial.print(digitalRead(BTN1));
+    //Serial.print(digitalRead(BTN2));
+    //idleanim();
+//  }
   //}
 }
 
 /*/////////////////////////////////////////////////////////////////////////////////////////
-* FUNCTIONS
+  FUNCTIONS
 *//////////////////////////////////////////////////////////////////////////////////////////
 void initializePins()
 {
-    pinMode(BTN1, INPUT_PULLUP);
-    pinMode(BTN2, INPUT_PULLUP);
-    pinMode(STP, OUTPUT);
-    pinMode(DIR, OUTPUT); 
-    pinMode(MS2, OUTPUT);
-    pinMode(EN , OUTPUT);;
-    pinMode(MS1 , OUTPUT);
-    pinMode(MS3 , OUTPUT);
-    pinMode(HEAD0EN , OUTPUT);
-    pinMode(HEAD1EN , OUTPUT);
-    pinMode(HEAD2EN , OUTPUT);
-    head1.setRX(26);  //firmness head 1
-    head1.setTX(31);  
-    pinMode(9, OUTPUT);
-    digitalWrite(9, LOW);    // begin reset the WIZ820io
-    pinMode(10, OUTPUT);
-    digitalWrite(10, HIGH);  // de-select WIZ820io
-    pinMode(4, OUTPUT);
-    digitalWrite(4, HIGH);   // de-select the SD Card
-    digitalWrite(9, HIGH);   // end reset pulse
+  pinMode(BTN1, INPUT_PULLUP);
+  pinMode(BTN2, INPUT_PULLUP);
+  pinMode(STP, OUTPUT);
+  pinMode(DIR, OUTPUT);
+  pinMode(MS2, OUTPUT);
+  pinMode(EN , OUTPUT);;
+  pinMode(MS1 , OUTPUT);
+  pinMode(MS3 , OUTPUT);
+  pinMode(HEAD0EN , OUTPUT);
+  pinMode(HEAD1EN , OUTPUT);
+  pinMode(HEAD2EN , OUTPUT);
+  pinMode(SOLO, OUTPUT);
+  head1.setRX(26);  //firmness head 1
+  head1.setTX(31);
+  pinMode(9, OUTPUT);
+  digitalWrite(9, LOW);    // begin reset the WIZ820io
+  pinMode(10, OUTPUT);
+  digitalWrite(10, HIGH);  // de-select WIZ820io
+  pinMode(4, OUTPUT);
+  digitalWrite(4, HIGH);   // de-select the SD Card
+  digitalWrite(9, HIGH);   // end reset pulse
 }
 
 void initializeSerial()
 {
-    Serial.begin(9600);       // for debugging
-    lcd.begin(9600);  //lcd and firmnesshead 0
-    head1.begin(9600);
-    head2.begin(9600); //firmness head 2
+  Serial.begin(9600);       // for debugging
+  lcd.begin(9600);  //lcd and firmnesshead 0
+  head1.begin(9600);
+  head2.begin(9600); //firmness head 2
 }
 
 char StrContains(char *str, char *sfind)
 {
-    char found = 0;
-    char index = 0;
-    char len;
+  char found = 0;
+  char index = 0;
+  char len;
 
-    len = strlen(str);
-    
-    if (strlen(sfind) > len) {
-        return 0;
-    }
-    while (index < len) {
-        if (str[index] == sfind[found]) {
-            found++;
-            if (strlen(sfind) == found) {
-                return 1;
-            }
-        }
-        else {
-            found = 0;
-        }
-        index++;
-    }
+  len = strlen(str);
+
+  if (strlen(sfind) > len) {
     return 0;
+  }
+  while (index < len) {
+    if (str[index] == sfind[found]) {
+      found++;
+      if (strlen(sfind) == found) {
+        return 1;
+      }
+    }
+    else {
+      found = 0;
+    }
+    index++;
+  }
+  return 0;
 }
 
 // sets every element of str to 0 (clears array)
 void StrClear(char *str, int length)
 {
-    for (int i = 0; i < length; i++) {
-        str[i] = 0;
-    }
+  for (int i = 0; i < length; i++) {
+    str[i] = 0;
+  }
 }
 
 void resetLCD()
@@ -262,226 +295,226 @@ void initializeLCD()
   lcd.write(0x0A);
   lcd.print("3F Fast Firmness Finder");
   lcd.flush();
-//  lcd.write(0x7C);
-//  lcd.write(0x04);
-//  lcd.write(0x7C);
-//  lcd.write(0x06);
-//  lcd.write(0x7C);
-//  lcd.write(157);
+  //  lcd.write(0x7C);
+  //  lcd.write(0x04);
+  //  lcd.write(0x7C);
+  //  lcd.write(0x06);
+  //  lcd.write(0x7C);
+  //  lcd.write(157);
   resetLCD();
 }
 
 void initializeSD()
 {
-    // initialize SD card
-    lcd.print("Initializing SD card...");       
-    delay(1250);
-    if (!SD.begin(4)) {
-        resetLCD();
-        lcd.print("ERROR - SD card failed!");
-        delay(1250);
-        return;    // init failed
-    }
+  // initialize SD card
+  lcd.print("Initializing SD card...");
+  delay(1250);
+  if (!SD.begin(4)) {
     resetLCD();
-    lcd.print("SUCCESS - SD card initialized.");
-    Serial.println("SUCCESS - SD card initialized.");
+    lcd.print("ERROR - SD card failed!");
+    delay(1250);
+    return;    // init failed
+  }
+  resetLCD();
+  lcd.print("SUCCESS - SD card initialized.");
+  Serial.println("SUCCESS - SD card initialized.");
+  delay(1250);
+
+  if (!SD.exists("DATALOG.TXT")) {
+    resetLCD();
+    lcd.print("ERROR - Can't find log file!");
+    Serial.print("ERROR - Can't find log file!");
     delay(1250);
 
-    if (!SD.exists("DATALOG.TXT")) {
-      resetLCD();
-      lcd.print("ERROR - Can't find log file!");
-      Serial.print("ERROR - Can't find log file!");
-      delay(1250);
-      
-    }
-    resetLCD();
-    lcd.print("SUCCESS - Found log file.");
-    Serial.println("SUCCESS - Log file found.");
-    delay(1250);
+  }
+  resetLCD();
+  lcd.print("SUCCESS - Found log file.");
+  Serial.println("SUCCESS - Log file found.");
+  delay(1250);
 }
 
 struct machineSettings loadMachineSettings(struct machineSettings localSettings, File settingsFile)
 {
-    char str[MAX_SETTINGS][MAX_LENGTH]; //longest field plus delimiter
-    int i = 0;
-    char *token;
-    if (!SD.exists("settings.txt")) {
-        resetLCD();
-        lcd.print("ERROR - Can't find settings.txt file!");
-        delay(1250);
-        return localSettings;  // can't find index file
-    }
+  char str[MAX_SETTINGS][MAX_LENGTH]; //longest field plus delimiter
+  int i = 0;
+  char *token;
+  if (!SD.exists("settings.txt")) {
     resetLCD();
-    Serial.println("SUCCESS - Found settings file.");
+    lcd.print("ERROR - Can't find settings.txt file!");
     delay(1250);
-    settingsFile = SD.open("settings.txt");
-    
-    while( i < MAX_SETTINGS) //read file into set of strings
+    return localSettings;  // can't find index file
+  }
+  resetLCD();
+  Serial.println("SUCCESS - Found settings file.");
+  delay(1250);
+  settingsFile = SD.open("settings.txt");
+
+  while ( i < MAX_SETTINGS) //read file into set of strings
+  {
+    size_t n = readField(&settingsFile, str[i], sizeof(str), "\n");
+    i++;
+  }
+  int k = 0;
+  while (k < MAX_SETTINGS) //turn strings into settings
+  {
+    int j = 0;
+    while (  j < MAX_SETTINGS )  //findout action integer match use case
     {
-      size_t n = readField(&settingsFile, str[i], sizeof(str), "\n");
-      i++;
-    }
-    int k = 0;
-    while(k < MAX_SETTINGS) //turn strings into settings
-    {
-      int j = 0;
-      while (  j < MAX_SETTINGS )  //findout action integer match use case
+      if ( strstr( str[k], machineSets[j] ) )
       {
-        if ( strstr( str[k], machineSets[j] ) )
+        token = strtok(str[k], " ");
+        Serial.print("Setting found: ");
+        Serial.println(token);
+        int l = 0;
+        switch (j)
         {
-          token = strtok(str[k], " ");
-          Serial.print("Setting found: ");
-          Serial.println(token);
-          int l = 0;
-          switch (j)
-          {
-            case 0 : //mac
-              while( l < sizeof(localSettings.mac))
-              {
-                token = strtok(NULL, " ");
-                localSettings.mac[l] =  strtol(token, (char **)NULL, 16) ;
-                l++;
-              }
-              break;
-              
-            case 1 : //IPAddress
-              //token = strtok(NULL, " ");
-              break;
+          case 0 : //mac
+            while ( l < sizeof(localSettings.mac))
+            {
+              token = strtok(NULL, " ");
+              localSettings.mac[l] =  strtol(token, (char **)NULL, 16) ;
+              l++;
+            }
+            break;
 
-            case 2 : //FPressure
-              token = strtok(NULL, " ");
-              localSettings.FPressure = strtol(token, (char **)NULL, 10);
-              break;
-              
-            case 3 : //CPressure
-              token = strtok(NULL, " ");
-              localSettings.CPressure = strtol(token, (char **)NULL, 10);
-              break;
+          case 1 : //IPAddress
+            //token = strtok(NULL, " ");
+            break;
 
-            case 4 : //Calib
-              token = strtok(NULL, " ");
-              localSettings.Calib = strtol(token, (char **)NULL, 10);
-              break;
-              
-            case 5 : //Rest
-              token = strtok(NULL, " ");
-              localSettings.Rest = strtol(token, (char **)NULL, 10);
-              break;
-              
-            case 6 : //WUnitst
-              token = strtok(NULL, " ");
-              localSettings.WUnits = strtol(token, (char **)NULL, 10);
-              break;
+          case 2 : //FPressure
+            token = strtok(NULL, " ");
+            localSettings.FPressure = strtol(token, (char **)NULL, 10);
+            break;
 
-            case 7 : //DUnits
-              token = strtok(NULL, " ");
-              localSettings.WUnits = strtol(token, (char **)NULL, 10);
-              break;
-              
-            case 8 : //DUnits
-          //    DUnits = int(strchr(str[k], ' '));
-              break;
+          case 3 : //CPressure
+            token = strtok(NULL, " ");
+            localSettings.CPressure = strtol(token, (char **)NULL, 10);
+            break;
 
-            default :
-              Serial.print("error");
-          }
-          break;
+          case 4 : //Calib
+            token = strtok(NULL, " ");
+            localSettings.Calib = strtol(token, (char **)NULL, 10);
+            break;
+
+          case 5 : //Rest
+            token = strtok(NULL, " ");
+            localSettings.Rest = strtol(token, (char **)NULL, 10);
+            break;
+
+          case 6 : //WUnitst
+            token = strtok(NULL, " ");
+            localSettings.WUnits = strtol(token, (char **)NULL, 10);
+            break;
+
+          case 7 : //DUnits
+            token = strtok(NULL, " ");
+            localSettings.WUnits = strtol(token, (char **)NULL, 10);
+            break;
+
+          case 8 : //DUnits
+            //    DUnits = int(strchr(str[k], ' '));
+            break;
+
+          default :
+            Serial.print("error");
         }
-        j++;
+        break;
       }
-      k++;
+      j++;
     }
-    settingsFile.close();
-    return localSettings;
-}; 
+    k++;
+  }
+  settingsFile.close();
+  return localSettings;
+};
 
 struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File growerFile, int growerNumber)
 {
-    char str[GROWER_SETTINGS][MAX_LENGTH]; //longest field plus delimiter
-    int i = 0;
-    char *token;
-    if (!SD.exists("growers.txt")) {
-        resetLCD();
-        lcd.print("ERROR - Can't find grower file!");
-        Serial.println("ERROR - Can't find grower file!");
-        delay(1250);
-        return growerSetting;  // can't find index file
-    }
+  char str[GROWER_SETTINGS][MAX_LENGTH]; //longest field plus delimiter
+  int i = 0;
+  char *token;
+  if (!SD.exists("growers.txt")) {
     resetLCD();
-    Serial.println("SUCCESS - Found Grower file.");
-    growerFile = SD.open("growers.txt");
-    int n = 0;
-    while (growerNumber > 0)
+    lcd.print("ERROR - Can't find grower file!");
+    Serial.println("ERROR - Can't find grower file!");
+    delay(1250);
+    return growerSetting;  // can't find index file
+  }
+  resetLCD();
+  Serial.println("SUCCESS - Found Grower file.");
+  growerFile = SD.open("growers.txt");
+  int n = 0;
+  while (growerNumber > 0)
+  {
+    while ( i < GROWER_SETTINGS) //read file into set of strings
     {
-      while( i < GROWER_SETTINGS) //read file into set of strings 
-      {
-        n = readField(&growerFile, str[i], sizeof(str), "\n");
-        Serial.print(n);
-        i++;
-      }
-      i = 0;
-      growerNumber--;
+      n = readField(&growerFile, str[i], sizeof(str), "\n");
+      Serial.print(n);
+      i++;
     }
-    if(n == 0)
+    i = 0;
+    growerNumber--;
+  }
+  if (n == 0)
+  {
+    return emptySettings;
+  }
+  int k = 0;
+  while (k < GROWER_SETTINGS) //turn strings into settings
+  {
+    int j = 0;
+    while (  j < GROWER_SETTINGS )  //findout action integer match use case
     {
-      return emptySettings;
-    }
-    int k = 0;
-    while(k < GROWER_SETTINGS) //turn strings into settings
-    {
-      int j = 0;
-      while (  j < GROWER_SETTINGS )  //findout action integer match use case
+      if ( strstr( str[k], growerSets[j] ) )
       {
-        if ( strstr( str[k], growerSets[j] ) )
+        token = strtok(str[k], " ");
+        Serial.print(token);
+        Serial.print(" : ");
+        switch (j)
         {
-          token = strtok(str[k], " ");
-          Serial.print(token);
-          Serial.print(" : ");
-          switch (j)
-          {
-            case 0 : //growerName             //TODO: FIX THIS
-              token = strtok(NULL, " ");
-              token = strtok(token, "\n");
-              strncat(token, "\0", 1);
-              Serial.println(token);
-              growerSetting.growerName = token;
-              //strcpy(growerSetting.growerName, token);
-              
-              Serial.println(growerSetting.growerName);
-              break;
-              
-            case 1 : //currentLot
-              token = strtok(NULL, " ");
-              growerSetting.currentLot = strtol(token, (char **)NULL, 10);
-              Serial.println(growerSetting.currentLot);
-              break;
+          case 0 : //growerName             //TODO: FIX THIS
+            token = strtok(NULL, " ");
+            token = strtok(token, "\n");
+            strncat(token, "\0", 1);
+            Serial.println(token);
+            growerSetting.growerName = token;
+            //strcpy(growerSetting.growerName, token);
 
-            case 2 : //totalLot
-              token = strtok(NULL, " ");
-              growerSetting.totalLot = strtol(token, (char **)NULL, 10);
-              Serial.println(growerSetting.totalLot);
-              break;
-              
-            case 3 : //changeCount
-              token = strtok(NULL, " ");
-              growerSetting.changeCount = strtol(token, (char **)NULL, 10);
-              Serial.println(growerSetting.changeCount);
-              break;
+            Serial.println(growerSetting.growerName);
+            break;
 
-            default :
-              Serial.println("error");
-          }
-          break;
+          case 1 : //currentLot
+            token = strtok(NULL, " ");
+            growerSetting.currentLot = strtol(token, (char **)NULL, 10);
+            Serial.println(growerSetting.currentLot);
+            break;
+
+          case 2 : //totalLot
+            token = strtok(NULL, " ");
+            growerSetting.totalLot = strtol(token, (char **)NULL, 10);
+            Serial.println(growerSetting.totalLot);
+            break;
+
+          case 3 : //changeCount
+            token = strtok(NULL, " ");
+            growerSetting.changeCount = strtol(token, (char **)NULL, 10);
+            Serial.println(growerSetting.changeCount);
+            break;
+
+          default :
+            Serial.println("error");
         }
-        j++;
+        break;
       }
-      k++;
+      j++;
     }
-    settingsFile.close();
-    return growerSetting;
-}; 
+    k++;
+  }
+  settingsFile.close();
+  return growerSetting;
+};
 
-int readField(File* file, char* str, size_t size, char* delim) 
+int readField(File* file, char* str, size_t size, char* delim)
 {
   char ch;
   int n = 0;
@@ -492,7 +525,7 @@ int readField(File* file, char* str, size_t size, char* delim)
     }
     str[n++] = ch;
     if (strchr(delim, ch)) {
-        break;
+      break;
     }
   }
   str[n] = '\0';
@@ -501,29 +534,29 @@ int readField(File* file, char* str, size_t size, char* delim)
 
 void initializeNetwork(struct machineSettings localSettings)
 {
-    //Ethernet.begin(localSettings.mac, ip);  // initialize Ethernet device
-    Ethernet.begin(localSettings.mac);  // initialize Ethernet device
-    server.begin();           // start to listen for clients
-    resetLCD();
-    lcd.print("Server IP:      ");
-    lcd.print(Ethernet.localIP());
-    Serial.print("Server IP:      ");
-    Serial.println(Ethernet.localIP());
+  //Ethernet.begin(localSettings.mac, ip);  // initialize Ethernet device
+  Ethernet.begin(localSettings.mac);  // initialize Ethernet device
+  server.begin();           // start to listen for clients
+  resetLCD();
+  lcd.print("Server IP:      ");
+  lcd.print(Ethernet.localIP());
+  Serial.print("Server IP:      ");
+  Serial.println(Ethernet.localIP());
 }
 
 char * getw()
 {
-//  static char h0str[7];  //must be one more than message length
+  //  static char h0str[7];  //must be one more than message length
   int h0DataLength = 0;
-//  static char h1str[7];  //must be one more than message length
+  //  static char h1str[7];  //must be one more than message length
   int h1DataLength = 0;
-//  static char h2str[7];  //must be one more than message length
+  //  static char h2str[7];  //must be one more than message length
   int h2DataLength = 0;
 
   StrClear(h0str, 7);
   StrClear(h1str, 7);
   StrClear(h2str, 7);
-  
+
   digitalWrite(HEAD0EN, HIGH);
   digitalWrite(HEAD1EN, HIGH);
   digitalWrite(HEAD2EN, HIGH);
@@ -531,97 +564,97 @@ char * getw()
   digitalWrite(HEAD0EN, LOW);
   digitalWrite(HEAD1EN, LOW);
   digitalWrite(HEAD2EN, LOW);
-//  while ( !lcd.available() && !head1.available() && !head2.available() )
-//  {
-//    delay(1);
-//  }
-  
+  //  while ( !lcd.available() && !head1.available() && !head2.available() )
+  //  {
+  //    delay(1);
+  //  }
+
   if ( lcd.available() )
   {
-      while(lcd.available())
+    while (lcd.available())
+    {
+      char h0data = lcd.read();
+      //        Serial.print("->");
+      //        Serial.print(h0data, HEX);
+      //        Serial.print("<-");
+      if ( h0data == '\r' )
       {
-        char h0data = lcd.read();
-//        Serial.print("->");
-//        Serial.print(h0data, HEX);
-//        Serial.print("<-");
-        if( h0data == '\r' )
-        {
-          break;
-        }
-        if( h0data == '\0' )
-        {
-          break;
-        }
-        if( h0data != 0xFF )
-        {
-          h0str[h0DataLength] = h0data;
-          h0DataLength++;
-        }
-
+        break;
       }
+      if ( h0data == '\0' )
+      {
+        break;
+      }
+      if ( h0data != 0xFF )
+      {
+        h0str[h0DataLength] = h0data;
+        h0DataLength++;
+      }
+
+    }
   }
-//  while (!head1.available() )
-//  {
-//    delay(1);
-//  }
+  //  while (!head1.available() )
+  //  {
+  //    delay(1);
+  //  }
 
   if ( head1.available() )
   {
-      while(head1.available())
+    while (head1.available())
+    {
+      char h1data = head1.read();
+      //        Serial.print("->");
+      //        Serial.print(h1data, HEX);
+      //        Serial.print("<-");
+      if ( h1data == '\r' )
       {
-        char h1data = head1.read();
-//        Serial.print("->");
-//        Serial.print(h1data, HEX);
-//        Serial.print("<-");
-        if( h1data == '\r' )
-        {
-          break;
-        }
-        if( h1data == '\0' )
-        {
-          break;
-        }
-        if( h1data != 0xFF )
-        {
-          h1str[h1DataLength] = h1data;
-          h1DataLength++;
-        }
-
+        break;
       }
+      if ( h1data == '\0' )
+      {
+        break;
+      }
+      if ( h1data != 0xFF )
+      {
+        h1str[h1DataLength] = h1data;
+        h1DataLength++;
+      }
+
+    }
   }
-//
-//  while (!head2.available() )
-//  {
-//    delay(1);
-//  }
+  //
+  //  while (!head2.available() )
+  //  {
+  //    delay(1);
+  //  }
 
   if ( head2.available() )
   {
-      while( head2.available())
+    while ( head2.available())
+    {
+      char h2data = head2.read();
+      //        Serial.print("->");
+      //        Serial.print(h2data, HEX);
+      //        Serial.print("<-");
+      if ( h2data == '\r' )
       {
-        char h2data = head2.read();
-//        Serial.print("->");
-//        Serial.print(h2data, HEX);
-//        Serial.print("<-");
-        if( h2data == '\r' )
-        {
-          break;
-        }
-        if( h2data == '\0' )
-        {
-          break;
-        }
-        if( h2data != 0xFF )
-        {
-          h2str[h2DataLength] = h2data;
-          h2DataLength++;
-        }
-
+        break;
       }
-  }   
-//  turn on all three digital pins
-//  wait for serial data to hit buffer
-//  store data into array
+      if ( h2data == '\0' )
+      {
+        break;
+      }
+      if ( h2data != 0xFF )
+      {
+        h2str[h2DataLength] = h2data;
+        h2DataLength++;
+      }
+
+    }
+  }
+  //  turn on all three digital pins
+  //  wait for serial data to hit buffer
+  //  store data into array
 
 
   return h2str;
@@ -629,46 +662,46 @@ char * getw()
 
 void updatedata( char *str, File dataFile) //consider returning bool for success
 {
-  if (dataFile){
+  if (dataFile) {
     dataFile.println( str );
     dataFile.close();
   }
-  else{
+  else {
     resetLCD();
     lcd.print("Error opening file");
   }
 }
- 
-void processrequest(char * ,EthernetClient *client)
+
+void processrequest(char * , EthernetClient *client)
 {
   // open requested web page file
   char request[12] = {0};
   Serial.print("validate request:");
   validaterequest( HTTP_req, request );
   Serial.println(request);
-  
-    if (SD.exists( request))       //check for requested file
-    {
-      Serial.print("open this file:");
-      Serial.println(request);
-      sendheader(request, client);    //send header depending on file type
-      webFile = SD.open(request);
 
-      if (webFile)
-      {
-        while(webFile.available()) 
-        {
-          client->write(webFile.read()); // send web page to client
-        }
-        //Serial.println("file sent");
-        webFile.close();
-      }
-    }
-    
-    else if (StrContains(request, "ajax"))   //serve ajax call
+  if (SD.exists( request))       //check for requested file
+  {
+    Serial.print("open this file:");
+    Serial.println(request);
+    sendheader(request, client);    //send header depending on file type
+    webFile = SD.open(request);
+
+    if (webFile)
     {
-      processaction(request, client);
+      while (webFile.available())
+      {
+        client->write(webFile.read()); // send web page to client
+      }
+      //Serial.println("file sent");
+      webFile.close();
     }
+  }
+
+  else if (StrContains(request, "ajax"))   //serve ajax call
+  {
+    processaction(request, client);
+  }
   else
   { //send 404
     Serial.println("404");
@@ -678,7 +711,7 @@ void processrequest(char * ,EthernetClient *client)
     client->write("\n");
   }
 }
-       
+
 void validaterequest(char * HTTP_req, char * request)   //TODO : add ajaxhandler to improve efficiency
 {
   word i = 0;
@@ -687,9 +720,9 @@ void validaterequest(char * HTTP_req, char * request)   //TODO : add ajaxhandler
   while (HTTP_req[i] != '\n')
   {
     if (HTTP_req[i] == '/')
-    {//start recording
+    { //start recording
       isRequest = true;
-      if (HTTP_req[i+1] == ' ') //if current letter / and next blank send index
+      if (HTTP_req[i + 1] == ' ') //if current letter / and next blank send index
       {
         strcpy( request, "index.htm");
         j = 9;
@@ -705,7 +738,7 @@ void validaterequest(char * HTTP_req, char * request)   //TODO : add ajaxhandler
       {
         if (HTTP_req[i] != '&')      //break up the string by ampersands and request those
         {
-          postAction[m]= HTTP_req[i] ;
+          postAction[m] = HTTP_req[i] ;
           m++;
         }
         else
@@ -714,7 +747,7 @@ void validaterequest(char * HTTP_req, char * request)   //TODO : add ajaxhandler
           processPostAction(postAction);
           postAction[m] = 0;
           m = 0;
-        } 
+        }
         i++;
       }
       Serial.println(postAction);
@@ -747,7 +780,7 @@ void processPostAction(char *postrequest)
   {
     return;
   }
-  while (strcmp(poststrings[i], postrequest) && i < (sizeof(poststrings)/sizeof(poststrings[0])) )  //findout action integer match use case
+  while (strcmp(poststrings[i], postrequest) && i < (sizeof(poststrings) / sizeof(poststrings[0])) ) //findout action integer match use case
   {
     i++;
   }
@@ -769,7 +802,7 @@ void processPostAction(char *postrequest)
   }
 }
 
-void sendheader(char *request,EthernetClient *client)
+void sendheader(char *request, EthernetClient *client)
 {
   if (StrContains(request, ".htm")) //TODO fix this so that index is read correctly
   {
@@ -793,25 +826,25 @@ void sendheader(char *request,EthernetClient *client)
     client->write("\n");
   }
   else if (StrContains(request, ".png")
-      || StrContains(request, ".ico")
-      || StrContains(request, ".mp4"))
+           || StrContains(request, ".ico")
+           || StrContains(request, ".mp4"))
   {
     client->write("HTTP/1.1 200 OK\n");
     client->write("\n");
   }
 }
 
-void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client) 
+void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
 {
   int i = 0;
 
-  while (strcmp(actions[i], HTTP_req) && i < (sizeof(actions)/sizeof(actions[0])) )  //findout action integer match use case
+  while (strcmp(actions[i], HTTP_req) && i < (sizeof(actions) / sizeof(actions[0])) ) //findout action integer match use case
   {
     i++;
   }
   Serial.print("do this action:");
   Serial.println(actions[i]);
-  switch (i){
+  switch (i) {
 
     case 0 : //ip
       client->print( Ethernet.localIP());
@@ -824,7 +857,7 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
     case 2 : //gate
       client->print( Ethernet.gatewayIP());
       break;
-      
+
     case 3 :  //changecount
       client->print(growerSettings.changeCount);
       break;
@@ -836,19 +869,19 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
     case 5 : //Lot
       client->print(growerSettings.currentLot);
       break;
-            
+
     case 6 : //cpressure
       client->print(localSettings.CPressure);
       break;
 
     case 7 : //remaining
-      client->print(growerSettings.totalLot-growerSettings.currentLot);
+      client->print(growerSettings.totalLot - growerSettings.currentLot);
       break;
 
     case 8 : //fpressure
       client->print(localSettings.FPressure);
       break;
-            
+
     case 9 : //rest
       client->print(localSettings.Rest);
       break;
@@ -864,7 +897,7 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
     case 12 : //calib
       client->print("12");
       break;
-            
+
     case 13 : //receiveip
       client->print("13");
       break;
@@ -876,7 +909,7 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
     case 15 : //graph
       client->print("15");
       break;
-            
+
     case 16 : //table0 reset table TODO : FIX THIS SO THAT IT DISPLAYS AVAILABLE PAGES
       requestint = 0;
       //current index
@@ -891,33 +924,33 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
       break;
 
     case 17 : //nexttable
-        requestint++;   //requestint not a usefull because they dont reset
+      requestint++;   //requestint not a usefull because they dont reset
+      {
+        Serial.print(requestint);
+        struct lotSettings nextGrower = loadGrowerSettings(growerSettings, growerFile, requestint);
+        if (strlen(nextGrower.growerName))
         {
-          Serial.print(requestint);
-          struct lotSettings nextGrower = loadGrowerSettings(growerSettings, growerFile, requestint);
-          if (strlen(nextGrower.growerName))
-          {
-            client->print(nextGrower.currentLot);
-            client->print(' ');
-            client->print(nextGrower.growerName);
-            client->print(' ');
-            client->print(nextGrower.totalLot);
-            client->print(' ');
-            client->print(nextGrower.changeCount);
-          }
-          else
-          {
-            client->print("");
-            client->print(' ');
-            client->print("");
-            client->print(' ');
-            client->print("");
-            client->print(' ');
-            client->print("");
-          }
+          client->print(nextGrower.currentLot);
+          client->print(' ');
+          client->print(nextGrower.growerName);
+          client->print(' ');
+          client->print(nextGrower.totalLot);
+          client->print(' ');
+          client->print(nextGrower.changeCount);
         }
-        break;
-        
+        else
+        {
+          client->print("");
+          client->print(' ');
+          client->print("");
+          client->print(' ');
+          client->print("");
+          client->print(' ');
+          client->print("");
+        }
+      }
+      break;
+
     case 18 : //table1
       requestint = 0;
       //
@@ -951,28 +984,29 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
 void idleanim()
 {
   unsigned long currentMillis = millis();
-  if (currentMillis  - previousMillis >= 250 && ( animation_step == 0 ) ) 
+  if (currentMillis  - previousMillis >= 250 && ( animation_step == 0 ) )
   {
     animation_step++;
     lcd.write(254);
     lcd.write(128);
-    lcd.write("Push Button to  Begin Test ->   ");
+    //lcd.write("Push Button to  Begin Test ->   ");
+    Serial.write("Push Button to  Begin Test ->   ");
   }
-  else if (currentMillis  - previousMillis >= 250 && ( animation_step == 1 )) 
+  else if (currentMillis  - previousMillis >= 250 && ( animation_step == 1 ))
   {
     animation_step++;
     lcd.write(254);
     lcd.write(204);
     lcd.write("->  ");
   }
-  else if (currentMillis  - previousMillis >= 250 && ( animation_step == 2 )) 
+  else if (currentMillis  - previousMillis >= 250 && ( animation_step == 2 ))
   {
     animation_step++;
     lcd.write(254);
     lcd.write(205);
     lcd.write("-> ");
   }
-  else if (currentMillis  - previousMillis >= 250 && ( animation_step == 3 )) 
+  else if (currentMillis  - previousMillis >= 250 && ( animation_step == 3 ))
   {
     animation_step = 0;
     lcd.write(254);
@@ -984,133 +1018,181 @@ void idleanim()
 
 void testfirmness()
 {
-    digitalWrite(DIR, HIGH);
-    digitalWrite(EN, LOW);
-    digitalWrite(MS1, LOW); //Pull MS1, and MS2 high to set logic to fullstep resolution
-    digitalWrite(MS2, LOW);
-    digitalWrite(MS3, LOW);
+  digitalWrite(DIR, LOW);
+  digitalWrite(EN, LOW);
+  digitalWrite(MS1, LOW); //Pull MS1, and MS2 high to set logic to fullstep resolution
+  digitalWrite(MS2, LOW);
+  digitalWrite(MS3, LOW);
 
-      if (samples <= changecount)    //move fruit under heads
-      {
-                          //load fruit onto turn table
-        steps = 0;
-        resetLCD();
-        lcd.write("Loading Samples ");
-        lcd.write("        ");
-        if (samples >= 10)    //align the count
-        {
-          lcd.write(254);
-          lcd.write(16);
-        }
-        lcd.print(samples);
-        lcd.write("/");
-        lcd.print(changecount);
-        samples++;
-        
-        while(steps <= 100)  //turn the turntable to next cherry
-        {
-          steps++;
-          digitalWrite(STP,HIGH); //Trigger one step forward
-          delay(1);
-          digitalWrite(STP,LOW); //Pull step pin low so it can be triggered again
-          delay(1);
-        }
-      }
-      else                  //start sampling
-      {
+  if (samples <= changecount)    //move fruit under heads
+  {
+    //load fruit onto turn table
+    steps = 0;
+    resetLCD();
+    lcd.write("Loading Samples ");
+    lcd.write("        ");
+    Serial.println("Loading Samples ");
+    if (samples >= 10)    //align the count
+    {
+      lcd.write(254);
+      lcd.write(16);
+    }
+    lcd.print(samples);
+    lcd.write("/");
+    lcd.print(changecount);
+    
+    Serial.print(samples);
+    Serial.print("/");
+    Serial.print(samples);
+    
+    samples++;
 
-        resetLCD();
-        if (new_lot)                      //what to display on the screen
-        {
-          lcd.write("Ready To Sample New Lot"); //first sample of lot
-        }
-        else if ( (samples - (changecount / 3)) <= changecount)           //samples in lot limit
-        {
-          lcd.write("Next Sample"); //first sample of lot
-        }
-        else                              //last sample
-        {
-          lcd.write("Last Sample"); //first sample of lot
-          samples = 0;
-          new_lot = true;
-        }
-        
-        steps = 0;
-        while(steps <= 100)  
-        {
-          steps++;
-          digitalWrite(STP,HIGH); //Trigger one step forward
-          delay(1);
-          digitalWrite(STP,LOW); //Pull step pin low so it can be triggered again
-          delay(1);
-        }
+    while (steps <= 100) //turn the turntable to next cherry
+    {
+      steps++;
+      digitalWrite(STP, HIGH); //Trigger one step forward
+      delay(1);
+      digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
+      delay(1);
+    }
+  }
+  else                  //start sampling
+  {
 
-        //updatedata( getw(), dataFile );
-        File dataFile = SD.open("DATALOG.TXT", FILE_WRITE);   //open data log file
-        if (dataFile){
-          str = getw();
-          dataFile.println( str );
-          dataFile.close();
-        }
-        else{
-          resetLCD();
-          lcd.print("Error opening file");
-        }
-        
-        resetLCD();
-        
-        if (new_lot && samples > 0)
-        {
-          lcd.print("Getting first   sample");
-          new_lot = false;
-        }
-//        else if (samples >= (samples - (changecount / 3)) <= changecount)
-//        {
-//          lcd.print("Getting last    sample");
-//          
-//        }
-        else
-        {
-          lcd.print(h0str);
-  //        lcd.write(254);
-  //        lcd.write(16);
-          lcd.write(", ");
-          lcd.print(h1str);
-  //        lcd.write(254);
-  //        lcd.write(16);
-          lcd.write(", ");
-          lcd.print(h2str);
-        }
-        samples++;
+    resetLCD();
+    Serial.println();
+    if (new_lot)                      //what to display on the screen
+    {
+      lcd.write("Ready To Sample New Lot"); //first sample of lot
+      Serial.print("Ready To Sample New Lot");
+    }
+    else if ( (samples - (changecount / 3)) <= changecount)           //samples in lot limit
+    {
+      lcd.write("Next Sample"); //first sample of lot
+      Serial.print("Next Sample");
+    }
+    else                              //last sample
+    {
+      lcd.write("Last Sample"); //first sample of lot
+      Serial.print("Last Sample");
+      samples = 0;
+      new_lot = true;
+    }
 
-      }
+    steps = 0;
+    while (steps <= 100)
+    {
+      steps++;
+      digitalWrite(STP, HIGH); //Trigger one step forward
+      delay(1);
+      digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
+      delay(1);
+    }
+
+    //updatedata( getw(), dataFile );
+    File dataFile = SD.open("DATALOG.TXT", FILE_WRITE);   //open data log file
+    if (dataFile) {
+      str = getw();
+      dataFile.println( str );
+      dataFile.close();
+      Serial.print(str);
+    }
+    else {
+      resetLCD();
+      lcd.print("Error opening file");
+      Serial.println();
+      Serial.print("Error opening file");
+    }
+
+    resetLCD();
+
+    if (new_lot && samples > 0)
+    {
+      lcd.print("Getting first   sample");
+      Serial.print("Getting first   sample");
+      new_lot = false;
+    }
+    //        else if (samples >= (samples - (changecount / 3)) <= changecount)
+    //        {
+    //          lcd.print("Getting last    sample");
+    //
+    //        }
+    else
+    {
+      lcd.print(h0str);
+      Serial.print(h0str);
+      //        lcd.write(254);
+      //        lcd.write(16);
+      lcd.write(", ");
+      lcd.print(h1str);
+      Serial.write(", ");
+      Serial.print(h1str);
+      //        lcd.write(254);
+      //        lcd.write(16);
+      lcd.write(", ");
+      lcd.print(h2str);
+      Serial.write(", ");
+      Serial.print(h2str);
+    }
+    samples++;
+
+  }
 }
-      
+
+void findposition()
+{
+  digitalWrite(DIR, LOW);
+  digitalWrite(EN, LOW);
+  digitalWrite(MS1, LOW); //Pull MS1, and MS2 high to set logic to fullstep resolution
+  digitalWrite(MS2, LOW);
+  digitalWrite(MS3, LOW);
+  //load fruit onto turn table
+  steps = 0;
+  resetLCD();
+  lcd.write("Finding First Sample");
+  Serial.write("Finding First Sample");
+  //Serial.println(analogRead(PRES)) 
+  while ( analogRead(PRES) <= 1000 ) //turn the turntable to next cherry
+  {
+    //steps++;
+    digitalWrite(STP, HIGH); //Trigger one step forward
+    delay(1);
+    digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
+    delay(1);
+    Serial.write("=-");
+  }
+  digitalWrite(SOLO, 1);
+  delay(300);
+  digitalWrite(SOLO, 0);
+  delay(100);
+  //reverse table certain distance
+}
+
 void serveclient(EthernetClient *client)
 {
   char * request;
   boolean currentLineIsBlank = true;
   boolean FileRequest = false;
   int req_index = 0;
-  
-  while (client->connected()) 
+
+  while (client->connected())
   {
     if (client->available())
     {
       getclientdata(client); //fills HTTP buffer
       if ((HTTP_req[req_index] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
       {
-       processrequest(HTTP_req, client);        //serve request
-       currentLineIsBlank = false;
-       req_index = 0;
-       request_index = 0;
-       StrClear(HTTP_req, REQ_BUF_SZ);
-       break;
+        processrequest(HTTP_req, client);        //serve request
+        currentLineIsBlank = false;
+        req_index = 0;
+        request_index = 0;
+        StrClear(HTTP_req, REQ_BUF_SZ);
+        break;
       }
       if (HTTP_req[req_index] == '\n')      //last character is a /n /n
       {
-         currentLineIsBlank = true;
-      } 
+        currentLineIsBlank = true;
+      }
       else if (HTTP_req[req_index] != '\r')         // a text character was received from client
       {
         currentLineIsBlank = false;
@@ -1125,10 +1207,10 @@ void serveclient(EthernetClient *client)
 char * getclientdata(EthernetClient *client)
 {
   char c = client->read(); // read 1 byte (character) from client
-                    // buffer first part of HTTP request in HTTP_req array (string)
-                    // leave last element in array as 0 to null terminate string (REQ_BUF_SZ - 1)
-  
-  if (request_index < (REQ_BUF_SZ - 1)) 
+  // buffer first part of HTTP request in HTTP_req array (string)
+  // leave last element in array as 0 to null terminate string (REQ_BUF_SZ - 1)
+
+  if (request_index < (REQ_BUF_SZ - 1))
   {
     HTTP_req[request_index] = c;          // save HTTP request character
     request_index++;
