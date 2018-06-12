@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <Ethernet.h>
 #include <SD.h>
+//#include <'C:\Program Files (x86)\Arduino\hardware\teensy\avr\libraries\SD\SD.h'>
 #include <stdio.h>
 
 #define REQ_BUF_SZ   2000   // size of buffer used to capture HTTP requests
@@ -87,7 +88,7 @@ static char h1str[7];  //must be one more than message length
 static char h2str[7];  //must be one more than message length
 int changecount = 25;  //TODO: add to grower struct
 int requestint = 1;
-//IPAddress ip(10, 34, 10, 131);
+//IPAddress ip(192, 168, 0, 127);
 EthernetServer server(80);  // create a server at port 80
 File webFile;
 char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null terminated string
@@ -149,7 +150,7 @@ void setup()
   localSettings = loadMachineSettings(localSettings, settingsFile);
   growerSettings = loadGrowerSettings(growerSettings, growerFile, 1);
   Serial.print(growerSettings.currentLot);
-  //initializeNetwork(localSettings);
+  initializeNetwork(localSettings);
   //delay(2000);
   resetLCD();
   lcd.write("Push Button to  Begin Test ->");
@@ -166,42 +167,21 @@ void setup()
 
 void loop()
 {
-  //    EthernetClient client = server.available();  // try to get client;
-  //    if (client)   // serve client website
-  //    {
-  //        serveclient(&client);
-  //    }
-  //    else if (digitalRead(BTN1) == 0) // continue testing firmness
-//  if (digitalRead(BTN1) == 1) // continue testing firmness
-//  {
-//    Serial.write("test firmness ");
+  EthernetClient client = server.available();  // try to get client;
+  if (client)   // serve client website
+  {
+      serveclient(&client);
+  }
+  else if (digitalRead(BTN1) == 0) // continue testing firmness
+  {
+    Serial.write("test firmness ");
+    findposition();
     testfirmness();
-//  }
+    delay(10000);
+    kickfruit();
+  }
 
 //  else { //idle animation
-    //delay(2000);
-    //getw();
-//    Serial.println(analogRead(PRES));
-//    digitalWrite(HEAD0EN, 1);
-//    delay(100);
-//    digitalWrite(HEAD0EN, 0);
-//    delay(100);
-//    digitalWrite(HEAD1EN, 1);
-//    delay(100);
-//    digitalWrite(HEAD1EN, 0);
-//    delay(100);
-//    digitalWrite(HEAD2EN, 1);
-//    delay(100);
-//    digitalWrite(HEAD2EN, 0);
-//    delay(100);
-    //Serial.print("on");
-    //findposition();
-    //digitalWrite(SOLO, 1);
-    //delay(1000);
-    //digitalWrite(SOLO, 0);
-    //Serial.println(analogRead(PRES));
-    //Serial.print(digitalRead(BTN1));
-    //Serial.print(digitalRead(BTN2));
     //idleanim();
 //  }
   //}
@@ -538,8 +518,8 @@ void initializeNetwork(struct machineSettings localSettings)
   Ethernet.begin(localSettings.mac);  // initialize Ethernet device
   server.begin();           // start to listen for clients
   resetLCD();
-  lcd.print("Server IP:      ");
-  lcd.print(Ethernet.localIP());
+  //lcd.print("Server IP:      ");
+  //lcd.print(Ethernet.localIP());
   Serial.print("Server IP:      ");
   Serial.println(Ethernet.localIP());
 }
@@ -564,6 +544,7 @@ char * getw()
   digitalWrite(HEAD0EN, LOW);
   digitalWrite(HEAD1EN, LOW);
   digitalWrite(HEAD2EN, LOW);
+  //ENABLE DELAY
   //  while ( !lcd.available() && !head1.available() && !head2.available() )
   //  {
   //    delay(1);
@@ -1024,40 +1005,43 @@ void testfirmness()
   digitalWrite(MS2, LOW);
   digitalWrite(MS3, LOW);
 
-  if (samples <= changecount)    //move fruit under heads
-  {
-    //load fruit onto turn table
-    steps = 0;
-    resetLCD();
-    lcd.write("Loading Samples ");
-    lcd.write("        ");
-    Serial.println("Loading Samples ");
-    if (samples >= 10)    //align the count
-    {
-      lcd.write(254);
-      lcd.write(16);
-    }
-    lcd.print(samples);
-    lcd.write("/");
-    lcd.print(changecount);
-    
-    Serial.print(samples);
-    Serial.print("/");
-    Serial.print(samples);
-    
-    samples++;
-
-    while (steps <= 100) //turn the turntable to next cherry
-    {
-      steps++;
-      digitalWrite(STP, HIGH); //Trigger one step forward
-      delay(1);
-      digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
-      delay(1);
-    }
-  }
-  else                  //start sampling
-  {
+//  if (samples <= changecount)    //move fruit under heads
+//  {
+//    //load fruit onto turn table
+//    steps = 0;
+//    resetLCD();
+//    lcd.write("Loading Samples ");
+//    lcd.write("        ");
+//    Serial.println("Loading Samples ");
+//    if (samples >= 10)    //align the count
+//    {
+//      lcd.write(254);
+//      lcd.write(16);
+//    }
+//    lcd.print(samples);
+//    lcd.write("/");
+//    lcd.print(changecount);
+//    
+//    Serial.print(samples);
+//    Serial.print("/");
+//    Serial.print(samples);
+//    
+//    samples++;
+//
+//    while (analogRead(PRES) <= 900) //turn the turntable to next cherry
+//    //USE THE PHOTO RESISTOR
+//    {
+//      steps++;
+//      digitalWrite(STP, HIGH); //Trigger one step forward
+//      delay(1);
+//      digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
+//      delay(1);
+//    }
+//    //step back
+//
+//  }
+//  else                  //start sampling
+//  {
 
     resetLCD();
     Serial.println();
@@ -1080,7 +1064,7 @@ void testfirmness()
     }
 
     steps = 0;
-    while (steps <= 100)
+    while (steps <= 100 && !new_lot)
     {
       steps++;
       digitalWrite(STP, HIGH); //Trigger one step forward
@@ -1136,7 +1120,7 @@ void testfirmness()
     }
     samples++;
 
-  }
+  //}
 }
 
 void findposition()
@@ -1152,19 +1136,62 @@ void findposition()
   lcd.write("Finding First Sample");
   Serial.write("Finding First Sample");
   //Serial.println(analogRead(PRES)) 
-  while ( analogRead(PRES) <= 1000 ) //turn the turntable to next cherry
+  while ( analogRead(PRES) <= 900 ) //turn the turntable to next cherry
   {
     //steps++;
     digitalWrite(STP, HIGH); //Trigger one step forward
     delay(1);
     digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
     delay(1);
-    Serial.write("=-");
   }
-  digitalWrite(SOLO, 1);
-  delay(300);
-  digitalWrite(SOLO, 0);
-  delay(100);
+  delay(250);
+  digitalWrite(DIR, HIGH);
+  //digitalWrite(MS2, HIGH);
+  //digitalWrite(MS3, HIGH);
+  while ( steps <= 275 ) //turn the turntable to next cherry
+  {
+    steps++;
+    digitalWrite(STP, HIGH); //Trigger one step forward
+    delay(1);
+    digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
+    delay(1);
+  }
+  //reverse table certain distance
+}
+
+void kickfruit()
+{
+  digitalWrite(DIR, LOW);
+  digitalWrite(EN, LOW);
+  digitalWrite(MS1, LOW); //Pull MS1, and MS2 high to set logic to fullstep resolution
+  digitalWrite(MS2, LOW);
+  digitalWrite(MS3, LOW);
+  //load fruit onto turn table
+  steps = 0;
+  resetLCD();
+  lcd.write("Finding First Sample");
+  Serial.write("Finding First Sample");
+  //Serial.println(analogRead(PRES)) 
+  while ( analogRead(PRES) <= 900 ) //turn the turntable to next cherry
+  {
+    //steps++;
+    digitalWrite(STP, HIGH); //Trigger one step forward
+    delay(1);
+    digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
+    delay(1);
+  }
+  delay(250);
+  digitalWrite(DIR, HIGH);
+  //digitalWrite(MS2, HIGH);
+  //digitalWrite(MS3, HIGH);
+    while (analogRead(PRES) >= 900) //turn the turntable to next cherry
+    //USE THE PHOTO RESISTOR
+    {    
+      digitalWrite(SOLO, 1);
+      delay(300);
+      digitalWrite(SOLO, 0);
+      delay(100);
+    }
   //reverse table certain distance
 }
 
