@@ -1,6 +1,6 @@
 #include <avr/io.h>
 #include <SPI.h>
-#include <Ethernet.h>
+#include <Ethernet3.h>
 #include <SD.h>
 //#include <'C:\Program Files (x86)\Arduino\hardware\teensy\avr\libraries\SD\SD.h'>
 #include <stdio.h>
