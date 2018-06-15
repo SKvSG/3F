@@ -67,21 +67,6 @@ void topfind()
   topflag = true;
 }
 
-void StepSuperFast()    // Moving forward at slow step mode.
-{
-  digitalWrite(dir, LOW); //Pull direction pin low to move down
-  digitalWrite(MS1, LOW); //Pull MS1, and MS2 high to set logic to fullstep resolution
-  digitalWrite(MS2, LOW);
-  digitalWrite(MS3, LOW);
-  while(!foundflag)  //add max steps
-  {
-    digitalWrite(stp,HIGH); //Trigger one step forward
-    delay(1);
-    digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-    delay(1);
-  }
-}
-
 void StepFast()    // Moving forward at slow step mode.
 {
   digitalWrite(dir, LOW); //Pull direction pin low to move down
@@ -115,43 +100,19 @@ int StepSlow()    // Moving forward at slow step mode.
   return count;
 }
 
-int StepSuperSlow()    // Moving forward at slow step mode.
+int OneStep()    // Moving forward at slow step mode.
 {
-  int count = 0;
   digitalWrite(dir, LOW); //Pull direction pin low to move down
   digitalWrite(MS1, HIGH); //Pull MS1, and MS2 high to set logic to 1/8th microstep resolution
   digitalWrite(MS2, HIGH);
   digitalWrite(MS3, HIGH);
-  while(!foundflag)  //add timeout
-  {
-    digitalWrite(stp,HIGH); //Trigger one step forward
-    delay(1);
-    digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-    delay(1);
-    delay(10);
-    count++;
-  }
-  return count;
+  digitalWrite(stp,HIGH); //Trigger one step forward
+  delay(1);
+  digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
+  delay(1);
 }
 
-int StepUltraSlow()    // Moving forward at slow step mode.
-{
-  int count = 0;
-  digitalWrite(dir, LOW); //Pull direction pin low to move down
-  digitalWrite(MS1, HIGH); //Pull MS1, and MS2 high to set logic to 1/8th microstep resolution
-  digitalWrite(MS2, HIGH);
-  digitalWrite(MS3, HIGH);
-  while(!foundflag)  //add timeout
-  {
-    digitalWrite(stp,HIGH); //Trigger one step forward
-    delay(1);
-    digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
-    delay(1);
-    delay(50);
-    count++;
-  }
-  return count;
-}
+
 int ReverseSteps()
 {
   int count = 0;
@@ -338,72 +299,16 @@ int toString(char a[]) {
   return n;
 }
 
-void testfirmness()
-{
-  float scale_weight = 0;
-  int downsteps = 0;
-  digitalWrite(EN, LOW);//Pull enable pin low to allow motor control
-    
-////////////////////////////////////////////////////////////////////////////////////////////////
- //find fruit
-   setpoint("0002"); //set detect pressure to 2 grams
-   StepFast();     //go fast
-   pressure000200 = getresult();
-////////////////////////////////////////////////////////////////////////////////////////////////  
- //go to first pressure
-   BackJump();
-   setpoint("0020"); //set interrupt for 50 grams
-   StepSlow();       //go slow
-   pressure005000 = getresult();
-////////////////////////////////////////////////////////////////////////////////////////////////  
- //got to second pressure
-   setpoint("0230"); //set interrupt for 250 grams
-   downsteps = StepSlow();
-   pressure025000 = getresult();
-//////////////////////////////////////////////////////////////////////////////////////////////// 
-  //find height and dislay results
-    BackJump();
-    BackJump();
-    BackJump();
-   
-   //stepheight = ReverseSteps();
-   Serial.print("pressure zero ");
-   Serial.print(pressure000200);
-   Serial.print("pressure one ");
-   Serial.print(pressure025000);
-   Serial.print("minus pressure two ");
-   Serial.print(pressure005000);
-   Serial.print("divided by downsteps ");
-   Serial.println(downsteps );
-   
-   scale_weight = (pressure025000-pressure005000)/(downsteps*0.00125);
-   button_state = 0;
-   Serial.println(scale_weight);
-   mySerial.println(scale_weight);
-   mySerial.flush();
-}
-
-void calib()
-{
-   BackJump();
-   setpoint("0020"); //set interrupt for 50 grams
-   StepSuperSlow();
-   pressure000200 = getresult();
-   Serial.print(pressure000200);
-   delay(1000);
-   setpoint("0100"); //set interrupt for 50 grams
-   StepUltraSlow();
-   pressure000200 = getresult();
-   Serial.print(pressure000200);
-   delay(10000);
-   BackJump();
-   mySerial.println(pressure000200);
-   mySerial.flush();
-}
 
 void loop() {
 
 //improved getresult
+
+  int downsteps = 0;
+  float scale_weight = 0;
+  char str[10];
+
+  //delay(5000);
 
   if (digitalRead(BTN1)&& (button_state == 0) )
   {
@@ -425,8 +330,64 @@ void loop() {
       errorcheck ( slavetomaster() );
     }
     
-    testfirmness();
-    //calib();
+    digitalWrite(EN, LOW);//Pull enable pin low to allow motor control
+    
+////////////////////////////////////////////////////////////////////////////////////////////////
+ //find fruit
+//   setpoint("0002"); //set detect pressure to 2 grams
+//   StepFast();     //go fast
+//   pressure000200 = getresult();
+////////////////////////////////////////////////////////////////////////////////////////////////  
+ //go to first pressure
+   BackJump();
+   setpoint("0020"); //set interrupt for 50 grams
+   while(!foundflag)
+   {
+    OneStep();
+    delay(10);
+   }
+   pressure000200 = getresult();
+   Serial.print(pressure000200);
+   delay(1000);
+   setpoint("0100"); //set interrupt for 50 grams
+   while(!foundflag)
+   {
+    OneStep();
+
+    delay(50);
+
+   }
+   pressure000200 = getresult();
+   Serial.print(pressure000200);
+   delay(10000);
+   BackJump();
+////////////////////////////////////////////////////////////////////////////////////////////////  
+ //got to second pressure
+//   setpoint("0230"); //set interrupt for 250 grams
+//   downsteps = StepSlow();
+//   pressure025000 = getresult();
+//////////////////////////////////////////////////////////////////////////////////////////////// 
+  //find height and dislay results
+//    BackJump();
+//    BackJump();
+//    BackJump();
+//   
+//   //stepheight = ReverseSteps();
+//   Serial.print("pressure zero ");
+//   Serial.print(pressure000200);
+//   Serial.print("pressure one ");
+//   Serial.print(pressure025000);
+//   Serial.print("minus pressure two ");
+//   Serial.print(pressure005000);
+//   Serial.print("divided by downsteps ");
+//   Serial.println(downsteps );
+//   
+//   scale_weight = (pressure025000-pressure005000)/(downsteps*0.01);
+//   button_state = 0;
+//   Serial.println(scale_weight);
+//   mySerial.println(scale_weight);
+   mySerial.println(pressure000200);
+   mySerial.flush();
   
    resetEDPins(); 
 

@@ -150,7 +150,7 @@ void setup()
   localSettings = loadMachineSettings(localSettings, settingsFile);
   growerSettings = loadGrowerSettings(growerSettings, growerFile, 1);
   Serial.print(growerSettings.currentLot);
-  initializeNetwork(localSettings);
+  //initializeNetwork(localSettings);
   //delay(2000);
   resetLCD();
   lcd.write("Push Button to  Begin Test ->");
@@ -175,10 +175,10 @@ void loop()
   else if (digitalRead(BTN1) == 0) // continue testing firmness
   {
     Serial.write("test firmness ");
-    findposition();
+    //findposition();
     testfirmness();
-    delay(10000);
-    kickfruit();
+    //delay(10000);
+    //kickfruit();
   }
 
 //  else { //idle animation
@@ -545,10 +545,15 @@ char * getw()
   digitalWrite(HEAD1EN, LOW);
   digitalWrite(HEAD2EN, LOW);
   //ENABLE DELAY
-  //  while ( !lcd.available() && !head1.available() && !head2.available() )
-  //  {
-  //    delay(1);
-  //  }
+//    while ( !lcd.available() && !head1.available() && !head2.available() )
+//    {
+//      delay(1);
+//    }
+
+    while ( !lcd.available() )
+    {
+      delay(1);
+    }
 
   if ( lcd.available() )
   {
@@ -574,65 +579,65 @@ char * getw()
 
     }
   }
-  //  while (!head1.available() )
-  //  {
-  //    delay(1);
-  //  }
-
-  if ( head1.available() )
-  {
-    while (head1.available())
-    {
-      char h1data = head1.read();
-      //        Serial.print("->");
-      //        Serial.print(h1data, HEX);
-      //        Serial.print("<-");
-      if ( h1data == '\r' )
-      {
-        break;
-      }
-      if ( h1data == '\0' )
-      {
-        break;
-      }
-      if ( h1data != 0xFF )
-      {
-        h1str[h1DataLength] = h1data;
-        h1DataLength++;
-      }
-
-    }
-  }
-  //
-  //  while (!head2.available() )
-  //  {
-  //    delay(1);
-  //  }
-
-  if ( head2.available() )
-  {
-    while ( head2.available())
-    {
-      char h2data = head2.read();
-      //        Serial.print("->");
-      //        Serial.print(h2data, HEX);
-      //        Serial.print("<-");
-      if ( h2data == '\r' )
-      {
-        break;
-      }
-      if ( h2data == '\0' )
-      {
-        break;
-      }
-      if ( h2data != 0xFF )
-      {
-        h2str[h2DataLength] = h2data;
-        h2DataLength++;
-      }
-
-    }
-  }
+//  //  while (!head1.available() )
+//  //  {
+//  //    delay(1);
+//  //  }
+//
+//  if ( head1.available() )
+//  {
+//    while (head1.available())
+//    {
+//      char h1data = head1.read();
+//      //        Serial.print("->");
+//      //        Serial.print(h1data, HEX);
+//      //        Serial.print("<-");
+//      if ( h1data == '\r' )
+//      {
+//        break;
+//      }
+//      if ( h1data == '\0' )
+//      {
+//        break;
+//      }
+//      if ( h1data != 0xFF )
+//      {
+//        h1str[h1DataLength] = h1data;
+//        h1DataLength++;
+//      }
+//
+//    }
+//  }
+//  //
+//  //  while (!head2.available() )
+//  //  {
+//  //    delay(1);
+//  //  }
+//
+//  if ( head2.available() )
+//  {
+//    while ( head2.available())
+//    {
+//      char h2data = head2.read();
+//      //        Serial.print("->");
+//      //        Serial.print(h2data, HEX);
+//      //        Serial.print("<-");
+//      if ( h2data == '\r' )
+//      {
+//        break;
+//      }
+//      if ( h2data == '\0' )
+//      {
+//        break;
+//      }
+//      if ( h2data != 0xFF )
+//      {
+//        h2str[h2DataLength] = h2data;
+//        h2DataLength++;
+//      }
+//
+//    }
+//  }
   //  turn on all three digital pins
   //  wait for serial data to hit buffer
   //  store data into array
@@ -1063,15 +1068,15 @@ void testfirmness()
       new_lot = true;
     }
 
-    steps = 0;
-    while (steps <= 100 && !new_lot)
-    {
-      steps++;
-      digitalWrite(STP, HIGH); //Trigger one step forward
-      delay(1);
-      digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
-      delay(1);
-    }
+//    steps = 0;
+//    while (steps <= 100 && !new_lot)
+//    {
+//      steps++;
+//      digitalWrite(STP, HIGH); //Trigger one step forward
+//      delay(1);
+//      digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
+//      delay(1);
+//    }
 
     //updatedata( getw(), dataFile );
     File dataFile = SD.open("DATALOG.TXT", FILE_WRITE);   //open data log file
@@ -1128,27 +1133,15 @@ void findposition()
   digitalWrite(DIR, LOW);
   digitalWrite(EN, LOW);
   digitalWrite(MS1, LOW); //Pull MS1, and MS2 high to set logic to fullstep resolution
-  digitalWrite(MS2, LOW);
+  digitalWrite(MS2, HIGH);
   digitalWrite(MS3, LOW);
   //load fruit onto turn table
-  steps = 0;
   resetLCD();
   lcd.write("Finding First Sample");
   Serial.write("Finding First Sample");
   //Serial.println(analogRead(PRES)) 
-  while ( analogRead(PRES) <= 900 ) //turn the turntable to next cherry
-  {
-    //steps++;
-    digitalWrite(STP, HIGH); //Trigger one step forward
-    delay(1);
-    digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
-    delay(1);
-  }
-  delay(250);
-  digitalWrite(DIR, HIGH);
-  //digitalWrite(MS2, HIGH);
-  //digitalWrite(MS3, HIGH);
-  while ( steps <= 275 ) //turn the turntable to next cherry
+  int steps = 0;
+  while ( analogRead(PRES) <= 900 && steps <= 10000) //turn the turntable to next cherry
   {
     steps++;
     digitalWrite(STP, HIGH); //Trigger one step forward
@@ -1156,7 +1149,18 @@ void findposition()
     digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
     delay(1);
   }
-  //reverse table certain distance
+  delay(250);
+  digitalWrite(DIR, HIGH);
+  steps = 0;
+  while ( steps <= 1000 )  //reverse table certain distance TODO: distance should depend on number of head
+  {
+    steps++;
+    digitalWrite(STP, HIGH); //Trigger one step forward
+    delay(1);
+    digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
+    delay(1);
+  }
+  digitalWrite(DIR, LOW);
 }
 
 void kickfruit()
