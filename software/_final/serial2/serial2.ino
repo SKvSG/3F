@@ -11,12 +11,9 @@ SoftwareSerial mySerial(6, 7); // RX, TX (transmit only)
 
 int SLAVERX = 0;
 int SLAVETX = 1;
-
 int EN = 4;
 int MS1 = 5;
-
 int dir = 10;
-
 int MS3 = 18;
 int stp = 19;
 int BTN2 = 21;
@@ -67,8 +64,22 @@ void topfind()
   topflag = true;
 }
 
-void StepSuperFast()    // Moving forward at slow step mode.
+float StepToWeight(int multiplier)
 {
+  digitalWrite(MS1, multiplier/8);
+  digitalWrite(MS2, multiplier/4);
+  digitalWrite(MS3, multiplier/2);
+  //000-full step(0), 001-halfstep(1), 010-quarterstep(2), 011-eightstep(3), 100-UNSUPPORTED(4), 101-UNSUPPORTED(5), 110-UNSUPPORTED(6), 111-SIXTEENTH(7)
+}
+
+float StepToDistanace(int speed)
+{
+  
+}
+
+int StepSuperFast()    // Moving forward at slow step mode.
+{
+  int count = 0;
   digitalWrite(dir, LOW); //Pull direction pin low to move down
   digitalWrite(MS1, LOW); //Pull MS1, and MS2 high to set logic to fullstep resolution
   digitalWrite(MS2, LOW);
@@ -79,7 +90,9 @@ void StepSuperFast()    // Moving forward at slow step mode.
     delay(1);
     digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
     delay(1);
+    count++;
   }
+  return count;
 }
 
 void StepFast()    // Moving forward at slow step mode.
@@ -112,7 +125,7 @@ int StepSlow()    // Moving forward at slow step mode.
     delay(1);
     count++;
   }
-  return count;
+  return count/8;                                   //TODO: make sure that I am returning a float
 }
 
 int StepSuperSlow()    // Moving forward at slow step mode.
@@ -131,7 +144,7 @@ int StepSuperSlow()    // Moving forward at slow step mode.
     delay(10);
     count++;
   }
-  return count;
+  return count/8;                                   //TODO: make sure that I am returning a float
 }
 
 int StepUltraSlow()    // Moving forward at slow step mode.
@@ -187,6 +200,22 @@ void BackJump()
   }
 }
 
+void BackJump(int steps)
+{
+  int i = 0;
+  digitalWrite(dir, HIGH); //Pull direction pin high to move in "reverse"
+  digitalWrite(MS1, LOW); //Pull MS1, and MS2 high to set logic to fullstep resolution
+  digitalWrite(MS2, LOW);
+  digitalWrite(MS3, LOW);
+  while(i < steps )  //Loop the stepping enough times for motion to be visible
+  {
+    digitalWrite(stp,HIGH); //Trigger one step
+    delay(1);
+    digitalWrite(stp,LOW); //Pull step pin low so it can be triggered again
+    delay(1);
+    i++;
+  }
+}
 
 void resetEDPins()
 {
@@ -383,6 +412,42 @@ void testfirmness()
    mySerial.flush();
 }
 
+void testfirmnessfast()
+{
+  float scale_weight = 0;
+  int downsteps = 0;
+  digitalWrite(EN, LOW);//Pull enable pin low to allow motor control
+    
+////////////////////////////////////////////////////////////////////////////////////////////////
+ //find fruit
+   setpoint("0002"); //set detect pressure to 2 grams
+   StepSuperFast();     //go fast
+   pressure000200 = getresult();
+ //got to second pressure
+   setpoint("0230"); //set interrupt for 250 grams
+   downsteps = StepSlow();
+   pressure025000 = getresult();
+//////////////////////////////////////////////////////////////////////////////////////////////// 
+  //find height and dislay results
+    BackJump();
+
+   
+   //stepheight = ReverseSteps();
+   Serial.print("pressure zero ");
+   Serial.print(pressure000200);
+   Serial.print("pressure one ");
+   Serial.print(pressure025000);
+   Serial.print("minus pressure two ");
+   Serial.print(pressure005000);
+   Serial.print("divided by downsteps ");
+   Serial.println(downsteps );
+   
+   scale_weight = (pressure025000-pressure005000)/(downsteps*0.000625);
+   button_state = 0;
+   Serial.println(scale_weight);
+   mySerial.println(scale_weight);
+   mySerial.flush();
+}
 void calib()
 {
    BackJump();
