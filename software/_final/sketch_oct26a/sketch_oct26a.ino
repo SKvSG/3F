@@ -1,34 +1,107 @@
-//#include <SoftSerial.h>
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  MICROADC PROGRAM - SKVSG - 0.0.0
+/////////////////////////////////////////////////////////////////////////////////////////*/
+
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  LIBRARIES
+/////////////////////////////////////////////////////////////////////////////////////////*/
 #include <string.h>
 #include <stdio.h>
 #include "HX711.h"
- 
-#define DOUT  2
-#define CLK  3
-#define W_INT 4
 
-//SoftSerial master (1,0);  //rx, tx
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  PIN ASSIGNMENTS
+/////////////////////////////////////////////////////////////////////////////////////////*/
+const int DOUT = 2;
+const int CLK = 3;
+const int W_INT = 4;
+
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  DEVICES
+/////////////////////////////////////////////////////////////////////////////////////////*/
 HX711 scale(DOUT, CLK);
+
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  GLOBAL VARIABLES
+/////////////////////////////////////////////////////////////////////////////////////////*/
 int i = 0;
 byte byteRead;
 float calibration_factor = 2185; //2003 for new load cell
 float scale_weight = 0;
 bool masterflag = 0;
 bool weightflag = 0;
+bool calibrationflag = 0;
 float master_weight = 20;
 
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  FUNCTION DECLARATIONS
+/////////////////////////////////////////////////////////////////////////////////////////*/
+char *  mastertoslave();
+void errorcheck(char *p);
+
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  MAIN
+/////////////////////////////////////////////////////////////////////////////////////////*/
 void setup() {
+  initializePins();
+  initializeSerial();
+  initializeScale();
+}
+
+void loop() {
+
+  if( Serial1.available() && (masterflag == 0) )        //look for communications
+  {
+    errorcheck( mastertoslave() );
+  }
+  else                                                  //update weight reading
+  {
+    scale_weight = scale.get_units();
+    Serial.println(scale_weight);
+  }
+  
+  if( scale_weight >= master_weight && (masterflag == 1))   //Set output at weight
+  {
+    masterflag = 0;
+    digitalWrite(W_INT, 1);
+  }
+  else
+  {
+    digitalWrite(W_INT, 0);
+  }
+}
+
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////////////////*/
+
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  INITIALIZATION FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////////////////*/
+void initializePins()
+{
   pinMode(CLK, OUTPUT);
   pinMode(DOUT, INPUT);
   pinMode(W_INT, OUTPUT);
+}
+
+void initializeSerial()
+{
   Serial1.begin(9600);
   Serial.begin(9600);
+}
+
+void initializeScale()
+{
   scale.set_scale();
   scale.tare(); //Reset the scale to 0 */
   long zero_factor = scale.read_average(); //Get a baseline reading
   scale.set_scale(calibration_factor);
 }
 
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  SERIAL FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////////////////*/
 char *  mastertoslave()
 {
   static char masterstr[5];  //must be one more than message length
@@ -76,6 +149,10 @@ void errorcheck(char *p)
       //1,1,1,1(ascii) to 1111 (decimal)
 
       master_weight = (p[3]-48)+(p[2]-48)*10+(p[1]-48)*100+(p[0]-48)*1000;
+      Serial.print(p[3], HEX);
+      Serial.print(p[2], HEX);
+      Serial.print(p[1], HEX);
+      Serial.print(p[0], HEX);                  
       masterflag = 1;
       weightflag = 0;
       Serial1.write("ok__");
@@ -86,6 +163,15 @@ void errorcheck(char *p)
       //20.00(float), to 0,0,2,0,(ascii)
 
       //scale_weight = master_weight;
+    }
+    else if (calibrationflag == 1)
+    {
+      calibration_factor = (p[3]-48)+(p[2]-48)*10+(p[1]-48)*100+(p[0]-48)*1000;
+      Serial1.write("ok__");
+      Serial1.write('\n');
+      Serial1.flush();
+      scale.set_scale(calibration_factor);
+      calibrationflag = 0;
     }
 
      else if (strcmp( "getw", p ) == 0 )
@@ -123,13 +209,12 @@ void errorcheck(char *p)
       Serial1.write('\n');
       Serial1.flush();
     }
-    else if ( strcmp( "cal+", p ) == 0) 
+    else if ( strcmp( "cali", p ) == 0) 
     {
-      calibration_factor++;
+      calibrationflag = 1;
       Serial1.write("ok__");
       Serial1.write('\n');
       Serial1.flush();
-      scale.set_scale(calibration_factor);
     }
     else if ( strcmp( "cal-", p ) == 0) 
     {
@@ -148,27 +233,3 @@ void errorcheck(char *p)
     }
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
-  if( Serial1.available() && (masterflag == 0) )
-  {
-    errorcheck( mastertoslave() );
-  }
-  else
-  {
-    scale_weight = scale.get_units();
-    Serial.println(scale_weight);
-  }
-  if( scale_weight >= master_weight && (masterflag == 1))
-  {
-    masterflag = 0;
-    digitalWrite(W_INT, 1);
-//    Serial1.write("found");
-//    Serial1.write('\n');
-//    Serial1.flush();
-  }
-  else
-  {
-    digitalWrite(W_INT, 0);
-  }
-}

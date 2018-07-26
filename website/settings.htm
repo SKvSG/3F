@@ -28,69 +28,6 @@
                 request.send(null);
             }
         </script>
-<!--         <script>
-            function GetIPState()
-            {
-                var request = new XMLHttpRequest();
-                request.onreadystatechange = function()
-                {
-                    if (this.readyState == 4)
-                    {
-                        if(this.status == 200)
-                        {
-                            if(this.responseText != null)
-                            {
-                                document.getElementById("aipa").innerHTML = this.responseText;
-                            }
-                        }
-                    }
-                }
-                request.open("GET","ajax_ip", true);
-                request.send(null);
-            }
-        </script>
-        <script>
-            function GetSubnetState()
-                {
-                    var request = new XMLHttpRequest();
-                    request.onreadystatechange = function()
-                    {
-                        if (this.readyState == 4)
-                        {
-                            if(this.status == 200)
-                            {
-                                if(this.responseText != null)
-                                {
-                                    document.getElementById("subn").innerHTML = this.responseText;
-                                }
-                            }
-                        }
-                    }
-                    request.open("GET","ajax_subn", true);
-                    request.send(null);
-                }
-        </script>
-        <script>
-            function GetGateState()
-                {
-                    var request = new XMLHttpRequest();
-                    request.onreadystatechange = function()
-                    {
-                        if (this.readyState == 4)
-                        {
-                            if(this.status == 200)
-                            {
-                                if(this.responseText != null)
-                                {
-                                    document.getElementById("gate").innerHTML = this.responseText;
-                                }
-                            }
-                        }
-                    }
-                    request.open("GET","ajax_gate", true);
-                    request.send(null);
-                }
-        </script> -->
     </head>
     <body>
         <div id="wrap">
@@ -99,7 +36,7 @@
                     <a href="index.htm">
                         <video width="100px" height="64px" autoplay><source src="logo.mp4" type="video/mp4">Your browser does not support the video tag.</video>
                     </a>
-                    Fast Frimness Finder
+                    Fast Firmness Finder
                 </h1>
                 <div id="nav">
                     <ul id="nav-pages">
@@ -167,14 +104,17 @@
                         <div id="text-container">
                             <h3>Pressure Settings</h3>
                             <script>
-                                GetInfo("CPressure");
-                                GetInfo("FPressure");
+                                GetInfo("pressure1")
+                                GetInfo("pressure2");
+                                GetInfo("pressure3");
                                 GetInfo("Rest");
                             </script>
                             <form>
-                                <label>Contact Pressure: &zwnj;</label><div id=CPressure></div><br>
-                                <label>Final Pressure: &zwnj;</label><div id=FPressure></div><br>
-                                <label>Rest Time: &zwnj;</label><div id=Rest></div><br>
+                                <label>Touch Pressure: &zwnj;</label><div id = pressure1></div><br>
+                                <label>Contact Pressure: &zwnj;</label><div id = pressure2></div><br>
+                                <label>Final Pressure: &zwnj;</label><div id = pressure3></div><br>
+                                <label>Rest Time: &zwnj;</label><div id= Rest ></div><br>
+                                <label>Touch Pressure: &zwnj;</label><input type="text" name="touchp"><br>                             
                                 <label>Contact Pressure: &zwnj;</label><input type="text" name="contp"><br>
                                 <label>Final Pressure: &zwnj;</label><input type="text" name="finap"><br>
                                 <label>Rest Time: &zwnj;</label><input type="text" name="restt"><br>
@@ -195,10 +135,10 @@
                             <label>Millimeters &zwnj;</label><input type="radio" name="mili" value="1" checked><br>
                             <label>Inches &zwnj;</label><input type="radio" name="mili" value="0"><br>
                             <br>
-                            <label>Current Reading: &zwnj; <!–– <div id=Calib> </div>  <!-- Whoah figure this part outlater -->
-                            <label>Calibration Weight: &zwnj;</label><input type="text" name="cweigh"><br>
+                            <label>Calibration Pressure: &zwnj;</label><div id = Calib ></div><br>
+                            <label>Calibration Pressure: &zwnj;</label><input type="text" name="cweigh"><br>
                             <br>
-                            <label> &zwnj;</label><input type="submit" value="Calibrate"><br>
+                                <label>&zwnj;</label><input type="submit" value="Update">
                         </div>
                         <br>
                     </div>

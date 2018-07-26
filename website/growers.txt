@@ -1,0 +1,4 @@
+growerName STEMILT;
+currentLot 0;
+changeCount 25;
+totalLot 20; 

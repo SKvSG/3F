@@ -1,30 +1,37 @@
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  BRIDGE PROGRAM - SKVSG - 0.0.0
+/////////////////////////////////////////////////////////////////////////////////////////*/
+
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  LIBRARIES
+/////////////////////////////////////////////////////////////////////////////////////////*/
 #include <avr/io.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Ethernet3.h>
 #include <SD.h>
-//#include <'C:\Program Files (x86)\Arduino\hardware\teensy\avr\libraries\SD\SD.h'>
 #include <stdio.h>
 #include <hd44780.h>                       // main hd44780 header
 #include <hd44780ioClass/hd44780_I2Cexp.h> // i2c expander i/o class header
 // I2C Address: It's either 0x27 or 0x3F
 
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  MACROS
+/////////////////////////////////////////////////////////////////////////////////////////*/
 #define REQ_BUF_SZ   2000   // size of buffer used to capture HTTP requests
-
 #define head1 Serial1
 #define head2 Serial2
 #define head3 Serial3
+#define MAX_LENGTH 64
+#define MAX_SETTINGS 8
+#define GROWER_SETTINGS 4
+#define MAX_POST_LENGTH 8l
+#define LCD_COLS 20
+#define LCD_ROWS 4
 
-//TODO: reconsider #DEFINES
-
-#define MAX_LENGTH  64
-#define MAX_SETTINGS  8
-#define GROWER_SETTINGS  4
-#define MAX_POST_LENGTH 8
 /*/////////////////////////////////////////////////////////////////////////////////////////
   PIN ASSIGNMENTS
-*//////////////////////////////////////////////////////////////////////////////////////////
-
+/////////////////////////////////////////////////////////////////////////////////////////*/
 const int FirmnessHead1RX = 0;
 const int FirmnessHead1TX = 1;
 const int MS2 = 2;
@@ -61,14 +68,14 @@ const int LED1 = 32;
 const int LED2 = 33;
 
 /*/////////////////////////////////////////////////////////////////////////////////////////
-  GLOBAL VARIABLES
-*//////////////////////////////////////////////////////////////////////////////////////////
+  DEVICES
+/////////////////////////////////////////////////////////////////////////////////////////*/
 hd44780_I2Cexp lcd;
-const int LCD_COLS = 20;
-const int LCD_ROWS = 4;
-
 EthernetServer server(80);  // create a server at port 80
 
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  GLOBAL VARIABLES
+/////////////////////////////////////////////////////////////////////////////////////////*/
 struct machineSettings
 {
   boolean lcd = 0;
@@ -79,14 +86,20 @@ struct machineSettings
   boolean ftpedal = 0;
   boolean serial = 0;
   boolean filesystem = 0;
+  int h1Calib = 2185;
+  int h2Calib = 2185;
+  int h3Calib = 2185;
+  int resttime = 0;
+  
   int array[100];
   byte mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-  int CPressure = 2;
-  int FPressure = 10;
-  int Calib = 25;
+  int pressure1 = 2;
+  int pressure2 = 100;
+  int pressure3 = 250;
   int Rest = 0;
   int WUnits = 453.592; //conversion factor * gram = lbs
   int DUnits = 25.4; //conversion factor * inches = mm TODO: add rod conversion factor
+  int calibration_pressure = 100;
 } localSettings;
 
 struct lotSettings
@@ -99,13 +112,19 @@ struct lotSettings
 
 struct lotSettings emptySettings = {0, "", 0, 0};
 
+struct frame_vector
+{
+  int msg_direction = 0;
+  int frame_index = 0;
+  int pause_index = 0;
+} frame1;
+
+struct frame_vector frame2;
 File settingsFile;
 File growerFile;
 static char h1str[7];  //must be one more than message length
 static char h2str[7];  //must be one more than message length
 static char h3str[7];  //must be one more than message length
-int changecount = 25;  //TODO: add to grower struct
-
 
 int requestint = 1;
 //IPAddress ip(192, 168, 0, 127);
@@ -114,12 +133,12 @@ File webFile;
 char HTTP_req[REQ_BUF_SZ] = {0}; // buffered HTTP request stored as null terminated string
 int request_index = 0;              // index into HTTP_req buffer
 const char* actions[] = { "ajax_ip", "ajax_subn", "ajax_gate", "ajax_changecount", "ajax_Grower", "ajax_Lot", //TODO : change to ajaxstrings
-                    "ajax_CPressure", "ajax_Remaining", "ajax_FPressure", "ajax_Rest", "ajax_WUnits",
-                    "ajax_DUnits", "ajax_Calib", "ajax_receiveip", "ajax_a0", "ajax_graph", "ajax_table0",
-                    "ajax_nexttable", "404"
-                  };
-const char* poststrings[] = {"contp", "finap", "restt"};
-const char* machineSets[] = { "mac", "IPAddress", "FPressure", "CPressure", "Calib", "Rest", "WUnits", "DUnits"};
+                    "ajax_pressure1", "ajax_Remaining", "ajax_pressure2", "ajax_Rest", "ajax_WUnits",
+                    "ajax_DUnits", "ajax_pressure3", "ajax_receiveip", "ajax_a0", "ajax_graph", "ajax_table0",
+                    "ajax_nexttable", "ajax_Calib", "404"
+                    };
+const char* poststrings[] = {"contp", "finap", "restt", "touchp", "cweigh"};
+const char* machineSets[] = { "mac", "IPAddress", "Pressure1", "Pressure2", "Pressure3", "Rest", "WUnits", "DUnits"};
 const char* growerSets[] = { "growerName", "currentLot", "totalLot", "changeCount"};
 const char* filenames[] = { "growers.txt", "settings.txt", "DATALOG.TXT"};
 int animation_step = 0;
@@ -129,56 +148,75 @@ int samples = 0;
 int steps = 0;
 int head = 0;
 boolean new_lot = true;
-// searches for the string sfind in the string str
-// returns 1 if string found
-// returns 0 if string not found
 
+int mode = 0;
+  //modes:
+  //0-DEFAULT
+  //1-SERIAL
+  //2-SD
+  //3-NETWORK
+  //4-FOOTPEDAL  
+  //5-HEAD1
+  //6-HEAD2
+  //7-HEAD3
+  //8-MACHINE SETTINGS  ???
+  //9-GROWER SETTINGS   ???
+int submode = 0;
+int oldmode = -1;
+int oldsubmode = -1;
+boolean button_pressed = 0;
 
 /*/////////////////////////////////////////////////////////////////////////////////////////
   FUNCTION DECLARATIONS
-*//////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////*/
 void initializePins();                        //set inputs and outputs
 boolean initializeLCD();
 boolean initializeSerial();
 boolean initializeFtPedal();
-boolean initializeSD();                          //TODO: take list of files as a variable
-//boolean initializeSD(char *);
+boolean initializeSD(char *filenames);
+boolean initializeHead1();
+boolean initializeHead2();
+boolean initializeHead3();
 struct machineSettings loadMachineSettings(struct machineSettings, File);                          //load settings set in the config file or sets to default value
 struct lotSettings loadGrowerSettings(struct lotSettings, File, int);   //load settings set in the config file or sets to default value int value represents which
-
 boolean initializeNetwork(struct machineSettings);                     //start network adapter check connectivity
-//struct machinesettings initializeNetwork(struct machinesettings);                     //start network adapter check connectivity
-
 void serveclient(EthernetClient *client);      //recieve request from client
 char * getclientdata(EthernetClient *client);
 void processrequest(char * );
 //void processrequest(char *, machinesettings)
 const char * validaterequest(char *);
 void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client); //***handle ajax requests TODO: REMOVE ETHERNETCLIENT RETURN STRING
-char StrContains(char *str, char *sfind);     //check request for string
+char StrContains(char *str, char *sfind);     //check request for string searches for the string sfind in the string str, returns 1 if string found, 0 if string not found
 void StrClear(char *str, char length);        //check if final line of request
 char * getw();                                //request pressure reading
 void testfirmness();                          //run the firmness testing procedure
 void idleanim();
 void sendheader(char *request, EthernetClient *client);
+void runmode();
+void modeanim();
 /*/////////////////////////////////////////////////////////////////////////////////////////
   MAIN
-*//////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////*/
 void setup()
 {
   initializePins();
   localSettings.lcd  = initializeLCD();
   localSettings.serial = initializeSerial();
-  localSettings.ftpedal = initializeFtPedal();
-  localSettings.filesystem = initializeSD();  
-  //localSettings.filesystem = initializeSD(filenames);  
+  localSettings.ftpedal = initializeFtPedal(); 
+  localSettings.head1 = initializeHead1();
+  localSettings.head2 = initializeHead2();
+  localSettings.head3 = initializeHead3(); 
+  displaydiaginfo(localSettings);
+  localSettings.filesystem = initializeSD(); 
+  displaydiaginfo(localSettings);
+  localSettings.network = initializeNetwork(localSettings);
+  displaydiaginfo(localSettings);
   localSettings = loadMachineSettings(localSettings, settingsFile);
   growerSettings = loadGrowerSettings(growerSettings, growerFile, 1);
-  localSettings.network = initializeNetwork(localSettings);
-
   lcd.setCursor(0,2);
-  lcd.print("Push Button to Begin");
-  Serial.write("Push Button to  Begin Test ->");
+  lcd.print("                    ");   
+  lcd.setCursor(0,3);
+  lcd.print("                    ");
 }
 
 void loop()
@@ -188,53 +226,50 @@ void loop()
   {
       serveclient(&client);
   }
-  else if (digitalRead(FTBTN) == 0) // continue testing firmness
+  else if (digitalRead(LCDBTN1) == 0 && (button_pressed == 0))    //buttons are active low 
   {
-    Serial.write("  Testing Firmness  ");
-
-    //load turn table by slow stepping 3/4 of entire rotation
-    //step turntable to find first fruit
-    //back up till fruit is under head 3
-    //test all fruit on turn table
-    //move one slot forward and repeat
-    //eject all fruit
-    
-    //lcd.setCursor(0,0);
-    //lcd.print("  Testing Firmness  ");
-    //if (fruit == 0)
-    //{
-      //lcd.setCursor(0,1);  
-      //lcd.print("Finding First Fruit ");
-      //findposition();
-      //lcd.setCursor(0,1);
-      //lcd.print("Aligning Table Heads");
-      //stepbacktohead();
-      //lcd.setCursor(0,1)
-      //lcd.print("Start Firmness Test ");
-    //}
-    testfirmness();
-    //lcd.setCursor(0,1);  
-    //lcd.print("  H1     H2     H3  ");
-    //lcd.print("XXX.XX XXX.XX XXX.XX");
-    //lcd.print("XXX.XX XXX.XX XXX.XX");
-
-    //if (fruit == 24)
-    //{
-    //  kickfruit();
-    //  fruit--;
-    //}
+    button_pressed = 1;
+    mode++;
+    submode = 0;
+    if (mode > 7)
+    {      
+      mode = 0;
+    }
   }
-
+  else if (digitalRead(LCDBTN2) == 0 && (button_pressed == 0))
+  {
+    button_pressed = 1;
+    submode++;
+  }
+  else if (digitalRead(FTBTN) == 0 && (button_pressed == 0)) // continue testing firmness
+  {
+    button_pressed = 1;
+    runmode();  //don't need to pass globals
+  }
   else 
-  { //idle animation
-    idleanim();
+  { //lcd animation
+      unsigned long currentMillis = millis();    
+    if (currentMillis  - previousMillis >= 200 )
+    {
+      modeanim();
+      displaydiaginfo(localSettings);
+      if ((digitalRead(LCDBTN1) ==1) && (digitalRead(LCDBTN2) == 1) && (digitalRead(FTBTN) == 1))   
+      {
+        button_pressed = 0;
+      }
+       previousMillis = currentMillis; 
+    }
   }
+  
 }
-
 
 /*/////////////////////////////////////////////////////////////////////////////////////////
   FUNCTIONS
-*//////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////*/
+
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  INITIALIZATION FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////////////////*/
 void initializePins()
 {
 //int DOUT = 11;      //pinmode not required
@@ -247,7 +282,7 @@ void initializePins()
 
 
   pinMode(LCDBTN1, INPUT_PULLUP);
-  pinMode(LCDBTN1, INPUT_PULLUP);
+  pinMode(LCDBTN2, INPUT_PULLUP);
   pinMode(FTBTN, INPUT_PULLUP);
   pinMode(FTDET, INPUT_PULLUP);
   pinMode(STP, OUTPUT);
@@ -262,8 +297,8 @@ void initializePins()
   pinMode(SOLO, OUTPUT);
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
-  head1.setRX(26);  //firmness head 1
-  head1.setTX(31);
+  head2.setRX(26);  //firmness head 2
+  head2.setTX(31);
   pinMode(WRESET, OUTPUT);
   digitalWrite(WRESET, LOW);    // begin reset the WIZ820io
   pinMode(WCS, OUTPUT);
@@ -281,83 +316,15 @@ void initializePins()
   digitalWrite(FirmnessHead3RX, LOW);
 }
 
-void displaydiaginfo(struct machineSettings localSettings)
-{
-  //lcd.print("SR SD NET FT H1 H2 H3");
-  lcd.setCursor(0,1);
-  if(localSettings.serial)
-  {
-    lcd.print("SR");
-  }
-  else
-  {
-    lcd.print("**");
-  }
-  lcd.setCursor(3,1);
-  if(localSettings.filesystem)
-  {
-    lcd.print("SD");
-  }
-  else
-  {
-    lcd.print("**");
-  }
-  lcd.setCursor(6,1);
-  if(localSettings.network)
-  {
-    lcd.print("NET");
-  }
-  else
-  {
-    lcd.print("***");
-  }
-  lcd.setCursor(10,1);
-  if(localSettings.ftpedal)
-  {
-    lcd.print("FT");
-  }
-  else
-  {
-    lcd.print("**");
-  }
-  lcd.setCursor(13,1);
-  if(localSettings.head1)
-  {
-    lcd.print("H1");
-  }
-  else
-  {
-    lcd.print("**");
-  }
-  lcd.setCursor(15,1);
-  if(localSettings.network)
-  {
-    lcd.print("H2");
-  }
-  else
-  {
-    lcd.print("**");
-  }
-  lcd.setCursor(17,1);
-  if(localSettings.network)
-  {
-    lcd.print("H3");
-  }
-  else
-  {
-    lcd.print("**");
-  }
-}
-
 boolean initializeFtPedal()
 {
   return digitalRead(FTDET);
 }
 
-boolean initializeSerial()
+boolean initializeSerial() //TODO: Make this functional
 {
   Serial.begin(9600);       // for debugging
-  if(Serial)
+  if(Serial.available())
   {
     return 1;
   }
@@ -367,80 +334,114 @@ boolean initializeSerial()
   }
 }
 
-void initializeHeads()
-{
-  
-    head1.begin(9600);  //firmnesshead 1
-
-  //turn on enable and read serial buffer
-  if (head1.available())  //firmnesshead 1
+boolean initializeHead1()
+{ 
+  int timeout = 0;
+  char headId[4];
+  lcd.setCursor(0,2);
+  frame1 = idleanimotherone("Searching for Head 1",2,frame1);    
+  head1.begin(9600);  //firmnesshead 1
+  digitalWrite(HEAD1EN, HIGH);
+  while(!head1.available() && (timeout <= 250))
   {
-    lcd.setCursor(11,1);
-    lcd.print("H1");
+    delay(1);
+    timeout++;
+    lcd.setCursor(0,3);
+    lcd.print(timeout);
+  }
+  digitalWrite(HEAD1EN, LOW);
+  if(timeout < 250)
+  {
+    for(int i = 0; i < 4; i++)
+    {
+      headId[i] = char(head1.read());
+      delay(1);
+    }
+    //what should go here calibration number?
+    head1.write("ackn");
+    lcd.setCursor(5,3);
+    lcd.print(headId);
+    Serial.print(headId);
+    delay(1000);
+    return 1;
   }
   else
   {
-    lcd.setCursor(11,1);
-    lcd.print("**");
-  }
-  
-  head2.begin(9600);  //firmnesshead 2
-  if (head2.available())
-  {
-    lcd.setCursor(14,1);
-    lcd.print("H2");
-  }
-  else
-  {
-    lcd.setCursor(14,1);
-    lcd.print("**");
-  }
-
-  
-  head3.begin(9600);  //firmnesshead 3
-  if (head3.available())
-  {
-    lcd.setCursor(17,1);
-    lcd.print("H3");
-  }
-  else
-  {
-    lcd.setCursor(17,1);
-    lcd.print("**");
-  }  
-}
-
-char StrContains(char *str, char *sfind)
-{
-  char found = 0;
-  char index = 0;
-  char len;
-
-  len = strlen(str);
-
-  if (strlen(sfind) > len) {
     return 0;
   }
-  while (index < len) {
-    if (str[index] == sfind[found]) {
-      found++;
-      if (strlen(sfind) == found) {
-        return 1;
-      }
-    }
-    else {
-      found = 0;
-    }
-    index++;
-  }
-  return 0;
 }
 
-// sets every element of str to 0 (clears array)
-void StrClear(char *str, int length)
-{
-  for (int i = 0; i < length; i++) {
-    str[i] = 0;
+boolean initializeHead2()
+{ 
+  int timeout = 0;
+  char headId[4];
+  lcd.setCursor(0,2);
+  frame1 = idleanimotherone("Searching for Head 2",2,frame1);    
+  head2.begin(9600);  //firmnesshead 2
+  digitalWrite(HEAD2EN, HIGH);
+  while(!head2.available() && (timeout <= 250))
+  {
+    delay(1);
+    timeout++;
+    lcd.setCursor(0,3);
+    lcd.print(timeout);
+  }
+  digitalWrite(HEAD2EN, LOW);
+  if(timeout < 250)
+  {
+    for(int i = 0; i < 4; i++)
+    {
+      headId[i] = char(head2.read());
+      delay(1);
+    }
+    //what should go here calibration number?
+    head2.write("ackn");
+    lcd.setCursor(5,3);
+    lcd.print(headId);
+    Serial.print(headId);
+    delay(1000);
+    return 1;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+boolean initializeHead3()
+{ 
+  int timeout = 0;
+  char headId[4];
+  lcd.setCursor(0,2);
+  frame1 = idleanimotherone("Searching for Head 3",2,frame1);    
+  head3.begin(9600);  //firmnesshead 3
+  digitalWrite(HEAD3EN, HIGH);
+  while(!head3.available() && (timeout <= 250))
+  {
+    delay(1);
+    timeout++;
+    lcd.setCursor(0,3);
+    lcd.print(timeout);
+  }
+  digitalWrite(HEAD3EN, LOW);
+  if(timeout < 250)
+  {
+    for(int i = 0; i < 4; i++)
+    {
+      headId[i] = char(head3.read());
+      delay(1);
+    }
+    //what should go here calibration number?
+    head3.write("ackn");
+    lcd.setCursor(5,3);
+    lcd.print(headId);
+    Serial.print(headId);
+    delay(1000);
+    return 1;
+  }
+  else
+  {
+    return 0;
   }
 }
 
@@ -462,35 +463,69 @@ boolean initializeLCD()
 boolean initializeSD()
 {
   // initialize SD card
-  lcd.setCursor(0,1);
-  lcd.print("SD");
-  lcd.setCursor(0,2);
-  lcd.print("Initializing SD card:");
-  Serial.print("Initializing SD card:");
+  frame1 = idleanimotherone("Initializing SD card:",2,frame1);
+  Serial.println("Initializing SD card:");
   
   if (!SD.begin(4)) {
-    lcd.setCursor(0,3);
-    lcd.print("ERROR - SD card fail");
+    frame2 = idleanimotherone("ERROR - SD card fail",3,frame2);
     Serial.println("ERROR - SD card fail");
+    delay(1250);
     return 0;    // init failed
   }
-  lcd.setCursor(0,3);
-  lcd.print("SUCCESS - SD found  ");
+  frame2 = idleanimotherone("SUCCESS - SD found",3,frame2);
   Serial.println("SUCCESS - SD found  ");
   
-  lcd.setCursor(0,2);
-  lcd.print("Checking SD for Files");
-  Serial.print("Checking SD for Files");
-  
-  if (!SD.exists("DATALOG.TXT")) {
-    lcd.setCursor(0,3);
-    lcd.print("ERROR - No log file");
-    Serial.println("ERROR - No log file");
-    return 0;
+  frame1 = idleanimotherone("Checking SD for Files",2,frame1);
+  Serial.println("Checking SD for Files");
+  int returnval = 1;
+  for ( int i = 0; i < ( sizeof(filenames)/sizeof(filenames[0]) ); i++ )
+  {
+    if (!SD.exists(filenames[i]))
+    {
+      lcd.setCursor(0,3);
+      lcd.print("ERROR: ");
+      lcd.print(filenames[i]);
+      Serial.print("ERROR: ");
+      Serial.print(filenames[i]);
+      delay(1250);
+      returnval = 0;
+    }
+    else
+    {
+      lcd.setCursor(0,3);      
+      lcd.print("FOUND: ");
+      lcd.print(filenames[i]);
+      Serial.print("FOUND: ");
+      Serial.print(filenames[i]);
+    }
   }
+  return returnval;
+}
+
+boolean initializeNetwork(struct machineSettings localSettings)       //use new lcd functions
+{
+  //Ethernet.begin(localSettings.mac, ip);  // initialize Ethernet device
+  lcd.setCursor(0,2);
+  lcd.print("                    ");
+  lcd.setCursor(0,2);
+  lcd.print("Getting DHCP IP");
   lcd.setCursor(0,3);
-  lcd.print("SUCCESS - Log found");
-  Serial.println("SUCCESS - Log found");
+  lcd.print("                    ");
+  Ethernet.begin(localSettings.mac);  // initialize Ethernet device
+  server.begin();           // start to listen for clients
+  lcd.setCursor(0,2);
+  lcd.print("                    ");
+  lcd.setCursor(0,2);
+  lcd.print("Visit to Configure: ");
+  lcd.setCursor(0,3);
+  lcd.print("                    ");
+  lcd.setCursor(0,3);
+  //if (strcmpy(Ethernet.localIP(), "0.0.0.0"))
+  //{;
+  //return 0;
+  //}
+  lcd.print(Ethernet.localIP());
+  delay(2000);
   return 1;
 }
 
@@ -500,13 +535,8 @@ struct machineSettings loadMachineSettings(struct machineSettings localSettings,
   int i = 0;
   char *token;
   if (!SD.exists("settings.txt")) {
-    //resetLCD();
-    //lcd.print("ERROR - Can't find settings.txt file!");
-    Serial.println("ERROR - Can't find settings.txt file!");
     return localSettings;  // can't find index file
   }
-  //resetLCD();
-  Serial.println("SUCCESS - Found settings file.");
   settingsFile = SD.open("settings.txt");
 
   while ( i < MAX_SETTINGS) //read file into set of strings
@@ -541,19 +571,19 @@ struct machineSettings loadMachineSettings(struct machineSettings localSettings,
             //token = strtok(NULL, " ");
             break;
 
-          case 2 : //FPressure
+          case 2 : //Pressure1
             token = strtok(NULL, " ");
-            localSettings.FPressure = strtol(token, (char **)NULL, 10);
+            localSettings.pressure1 = strtol(token, (char **)NULL, 10);
             break;
 
-          case 3 : //CPressure
+          case 3 : //Pressure2
             token = strtok(NULL, " ");
-            localSettings.CPressure = strtol(token, (char **)NULL, 10);
+            localSettings.pressure2 = strtol(token, (char **)NULL, 10);
             break;
 
-          case 4 : //Calib
+          case 4 : //Pressure3
             token = strtok(NULL, " ");
-            localSettings.Calib = strtol(token, (char **)NULL, 10);
+            localSettings.pressure3 = strtol(token, (char **)NULL, 10);
             break;
 
           case 5 : //Rest
@@ -594,13 +624,8 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
   int i = 0;
   char *token;
   if (!SD.exists("growers.txt")) {
-    //resetLCD();
-    //lcd.print("ERROR - Can't find grower file!");
-    Serial.println("ERROR - Can't find grower file!");
     return growerSetting;  // can't find index file
   }
-  //resetLCD();
-  Serial.println("SUCCESS - Found Grower file.");
   growerFile = SD.open("growers.txt");
   int n = 0;
   while (growerNumber > 0)
@@ -673,6 +698,673 @@ struct lotSettings loadGrowerSettings(struct lotSettings growerSetting, File gro
   return growerSetting;
 };
 
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  LCD FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////////////////*/
+void displaydiaginfo(struct machineSettings localSettings)  //MINOR BUG: Remove flicker from certain situations
+{
+  //lcd.print("SR SD NT FT H1 H2 H3");
+  lcd.setCursor(0,1);
+  lcd.print("** SD NT FT H1 H2 H3");    //MINOR BUG: This causes flicker on characters that get changed later but fixes left over character from changing modes
+  lcd.setCursor(0,1);
+  switch (mode)
+  {
+    case 0:   //DEFAULT mode shows all working systems
+      if(localSettings.serial)
+      {
+        lcd.print("SR");
+      }
+      else
+      {
+        lcd.print("**");
+      }
+      lcd.setCursor(3,1);
+      if(localSettings.filesystem)
+      {
+        lcd.print("SD");
+      }
+      else
+      {
+        lcd.print("**");
+      }
+      lcd.setCursor(6,1);
+      if(localSettings.network)
+      {
+        lcd.print("NT");
+      }
+      else
+      {
+        lcd.print("**");
+      }
+      lcd.setCursor(9,1);
+      if(localSettings.ftpedal)
+      {
+        lcd.print("FT");
+      }
+      else
+      {
+        lcd.print("**");
+      }
+      lcd.setCursor(12,1);
+      if(localSettings.head1)
+      {
+        lcd.print("H1");
+      }
+      else
+      {
+        lcd.print("**");
+      }
+      lcd.setCursor(15,1);
+      if(localSettings.head2)
+      {
+        lcd.print("H2");
+      }
+      else
+      {
+        lcd.print("**");
+      }
+      lcd.setCursor(18,1);
+      if(localSettings.head3)
+      {
+        lcd.print("H3");
+      }
+      else
+      {
+        lcd.print("**");
+      }
+      break;
+    case 1:       //Serial Mode
+      if(animation_step % 2 == 0)
+      {
+        lcd.print("      ");
+      }
+      else
+      {
+        if(localSettings.serial)
+        {
+          lcd.print("SERIAL");
+        }
+        else
+        {
+          lcd.print("serial");
+        }
+      }
+      lcd.print(" SDNTFTH1H2H3");   
+      break;
+    case 2:         //SD
+      lcd.print("SR ");
+      if(animation_step % 2 == 0)
+      {
+        lcd.print("      ");
+      }
+      else
+      {
+        if(localSettings.filesystem)
+        {
+          lcd.print("SDCARD");
+        }
+        else
+        {
+          lcd.print("sdcard");
+        }
+      }
+      lcd.print(" NTFTH1H2H3 ");
+      break;
+    case 3:         //NT
+      lcd.print("SRSD ");
+      if(animation_step % 2 == 0)
+      {
+        lcd.print("      ");
+      }
+      else
+      {
+        if(localSettings.network)
+        {
+          lcd.print("NETWRK");
+        }
+        else
+        {
+          lcd.print("netwrk");
+        }
+      }
+      lcd.print(" FTH1H2H3");      
+      break;      
+    case 4:         //NT
+      lcd.print("SRSDNT ");
+      if(animation_step % 2 == 0)
+      {
+        lcd.print("      ");
+      }
+      else
+      {
+        if(localSettings.network)
+        {
+          lcd.print("FTPEDL");
+        }
+        else
+        {
+          lcd.print("ftpedl");
+        }
+      }
+      lcd.print(" H1H2H3");      
+      break;
+    case 5:         //HEAD 1
+      lcd.print("SRSDNTFT ");
+      if(animation_step % 2 == 0)
+      {
+        lcd.print("      ");
+      }
+      else
+      {
+        if(localSettings.head1)
+        {
+          lcd.print("HEAD 1");
+        }
+        else
+        {
+          lcd.print("head 1");
+        }
+      }
+      lcd.print(" H2H3");      
+      break;
+    case 6:         //HEAD 2
+      lcd.print("SRSDNTFTH1 ");
+      if(animation_step % 2 == 0)
+      {
+        lcd.print("      ");
+      }
+      else
+      {
+        if(localSettings.head2)
+        {
+          lcd.print("HEAD 2");
+        }
+        else
+        {
+          lcd.print("head 2");
+        }
+      }
+      lcd.print(" H3");      
+      break;
+    case 7:         //HEAD 3
+      lcd.print("SRSDNTFTH1H2 ");
+      if(animation_step % 2 == 0)
+      {
+        lcd.print("       ");
+      }
+      else
+      {
+        if(localSettings.head3)
+        {
+          lcd.print("HEAD 3 ");
+        }
+        else
+        {
+          lcd.print("head 3 ");
+        }
+      }      
+      break;       
+  }    
+}
+
+void idleanim()
+{
+  lcd.setCursor(animation_step,3);
+  if (animation_step == LCD_COLS-1) 
+  {
+    lcd.setCursor(0,3);
+    lcd.print("                    ");
+  }
+  else
+  {
+    lcd.print("->");
+  }
+}
+
+int idleanimother(char * str, int line,int index) //some sort of delay or timing system or reversing system
+{
+  if (strlen(str) > 20 )    //doesn't fit on screen
+  {
+    lcd.setCursor(0,line);
+    for(int pos = 0+index; pos <= 19+index; pos++)
+    {
+      lcd.print(str[pos]);
+    }
+    index++;
+  }
+  else    //fits on screen just diplay string
+  {
+    lcd.print(str);
+  }
+  if (index+20 > strlen(str))
+  {
+    index = 0;
+  }
+  return index;
+}
+
+struct frame_vector idleanimotherone(char * str, int line,struct frame_vector frame) //some sort of delay or timing system or reversing system
+{
+  if (strlen(str) > 20 )    //doesn't fit on screen
+  {
+    lcd.setCursor(0,line);
+    if (!frame.msg_direction)
+    {
+      for(int pos = 0+frame.frame_index; pos <= 19+frame.frame_index; pos++)
+      {
+        lcd.print(str[pos]);
+      }
+      if((frame.frame_index == 0 || frame.frame_index == 20 || frame.frame_index == 40 || frame.frame_index == 60) && frame.pause_index < 10 )
+      {
+        frame.pause_index++;
+      }
+      else if(frame.frame_index+21 > strlen(str))
+      {
+        if (frame.pause_index < 10)
+        {
+         frame.pause_index++;
+        }
+        else
+        {
+          frame.pause_index = 0;
+          frame.frame_index = 0;
+          frame.msg_direction = true;
+        }
+      }
+      else
+      {
+        frame.frame_index++;
+        frame.pause_index = 0;
+      }
+    }
+    else
+    {
+      for(int pos = strlen(str)-frame.frame_index-20; pos < strlen(str)-frame.frame_index; pos++)
+      {
+        lcd.print(str[pos]);
+      }
+      frame.frame_index ++;
+      if (frame.frame_index > strlen(str)-19)
+      {
+        frame.frame_index = 0;
+        frame.msg_direction = false;
+      }
+    }
+  }
+  else    //fits on screen just diplay string
+  {
+    lcd.setCursor(0,line);
+    lcd.print("                    ");
+    lcd.setCursor(0,line);
+    lcd.print(str);
+  }
+  return frame;
+}
+
+void modeanim()
+{
+
+    char str[90];
+    switch (mode)
+    {
+     case 0:    //DEFAULT
+      switch (submode)
+      {
+        case 0:           //normal test
+          frame1 = idleanimotherone("Push Pedal to Test, Push Button to view Grower Name",2,frame1);          
+          idleanim();
+          break;
+        case 1:           //view grower setttings
+          frame1 = idleanimotherone("Push Pedal to Restart Current Grower, Push Button to view Next Grower",2,frame1);
+          strcpy(str, "The Current Grower: ");
+          strcat(str, growerSettings.growerName);
+          frame2 = idleanimotherone(str,3,frame2);          
+          break;
+        case 2:          //load next grower
+          frame1 = idleanimotherone("Push Pedal to Select Grower, Push Button to view Next Grower",2,frame1);
+          strcpy(str, "The Next Grower: ");
+          //strcat(str, (char*)growerSettings.growerNameNext);          //get next growername
+          frame2 = idleanimotherone(str,3,frame2);         
+          break;
+        case 3:         //back to 2
+          submode = 2;
+        default:
+          submode = 0;
+          break;
+      }
+      break;
+     case 1:    //SERIAL
+      switch (submode)
+      {
+        case 0:     //DEFAULT //available
+          if(localSettings.serial)
+          {
+            frame1 = idleanimotherone("Serial Connected",2,frame1);
+          }
+          else
+          {
+            frame1 = idleanimotherone("Serial Not Connected Connect usb at 9600 baud ",2,frame1);
+          }
+          frame2 = idleanimotherone("Push Button to rescan serial connections",3,frame2);          
+          break;
+        case 1:     //rescan
+          frame1 = idleanimotherone("Scanning....",2,frame1);
+          initializeSerial();
+          submode = 0;
+          break;
+        default:
+          submode = 0;
+          break;
+      }
+      break;
+
+     case 2:    //SD
+      switch (submode)
+      {
+        case 0:
+          if (localSettings.filesystem)
+          {
+            frame1 = idleanimotherone("SD card and filesystem loaded successfully",2,frame1);      
+          }
+          else
+          {
+            frame1 = idleanimotherone("SD card and filesystem failed to load successfully",2,frame1);  
+          }
+          frame2 = idleanimotherone("Push Button 1 to Rescan SD Card and Filesystem",3,frame2);  
+          break;
+        case 1:           //rescan SD connections 
+          frame2 = idleanimotherone("Rescanning SD...",2,frame2);
+          initializeSD();
+          submode = 0;
+          break;     
+        default:
+          submode = 0;
+          break;
+      }   
+      break;
+     case 3:    //NETWORK
+      switch (submode)
+      {
+        case 0:
+          if (localSettings.network)
+          {
+            frame1 = idleanimotherone("Network Connected Successfully",2,frame1);      
+          }
+          else
+          {
+            frame1 = idleanimotherone("Network NOT Connected Successfully",2,frame1);  
+          }
+          frame2 = idleanimotherone("Push Button to Retry, Push Pedal to View More",3,frame2);  
+          break;
+        case 1:       //rescan network
+          frame1 = idleanimotherone("Retrying Network...",2,frame1);
+          initializeNetwork(localSettings);
+          submode = 0;
+          break;     
+          //veiw current ip config
+          //rescan network connections
+        default:
+          submode = 0;
+          break;
+      }
+      break;
+     case 4:    //FOOTPEDAL
+      switch (submode)
+      {
+        case 0:     //DEFAULT //available
+          if (localSettings.ftpedal)
+          {
+            frame1 = idleanimotherone("Footpedal is connected",2,frame1);      
+          }
+          else
+          {
+            frame1 = idleanimotherone("Footpedal is not connected",2,frame1);
+          }
+          frame2 = idleanimotherone("Push Button to Rescan Footpedal",3,frame2); 
+          break;
+        
+        case 1:     //rescan
+          frame1 = idleanimotherone("Rescanning footpedal...",2,frame1);
+          initializeFtPedal();
+          submode = 0;
+          break;
+          
+        default:
+          submode = 0;
+          break;
+      }  
+      //Serial.write("Footpedal is not connected");   
+      break;      
+     case 5:    //HEAD1
+      switch (submode)
+      {
+        case 0: //push to scan for head or push
+          if(localSettings.head1)
+          {
+            frame1 = idleanimotherone("Head 1 found",2,frame1);
+          }
+          else
+          {
+            frame1 = idleanimotherone("Head 1 NOT found",2,frame1);
+          }
+          frame2 = idleanimotherone("Push Button to Rescan, Use Pedal to Start Calibration",3,frame2);
+          break;
+        case 1:
+          frame1 = idleanimotherone("Rescanning Head 1...",2,frame1);
+          initializeHead1();
+          submode = 0;
+          break; 
+        default:
+          submode = 0;
+          break;
+      }
+      break;    
+     case 6:    //HEAD2
+      switch (submode)
+      {
+        case 0: //push to scan for head or push
+          if(localSettings.head2)
+          {
+            frame1 = idleanimotherone("Head 2 found",2,frame1);
+          }
+          else
+          {
+            frame1 = idleanimotherone("Head 2 NOT found",2,frame1);
+          }
+          frame2 = idleanimotherone("Push Button to Rescan, Use Pedal to Start Calibration",3,frame2);
+          break;
+        case 1:
+          frame1 = idleanimotherone("Rescanning Head 2...",2,frame1);
+          initializeHead2();
+          submode = 0;
+          break; 
+        default:
+          submode = 0;
+          break;
+      }
+      break;
+     case 7:    //HEAD3
+      switch (submode)
+      {
+        case 0: //push to scan for head or push
+          if(localSettings.head3)
+          {
+            frame1 = idleanimotherone("Head 3 found",2,frame1);
+          }
+          else
+          {
+            frame1 = idleanimotherone("Head 3 NOT found",2,frame1);
+          }
+          frame2 = idleanimotherone("Push Button to Rescan, Use Pedal to Start Calibration",3,frame2);
+          break;
+        case 1:
+          frame1 = idleanimotherone("Rescanning Head 3...",2,frame1);
+          initializeHead3();
+          submode = 0;
+          break; 
+        default:
+          submode = 0;
+          break;
+      }
+      break;
+     case 8:    //NETWORK SETTINGS
+      switch (submode)
+      {
+        case 0:
+          break;
+        case 1:
+          break;
+        case 2:
+          break;
+        default:
+          submode = 0;
+          break;
+      }
+      break;
+     case 9:    //CALIBRATION SETTINGS HEAD1
+        switch (submode)
+        {
+          case 0:
+            frame1 = idleanimotherone("Use Foot Pedal to TEST Calibration, use Button change Calibration Factor",2,frame1);
+            lcd.setCursor(0,3);
+            lcd.print("    ");
+            lcd.setCursor(0,3);            
+            lcd.print(localSettings.h1Calib);      
+            break;
+          case 1:
+          //get calib factor
+            frame1 = idleanimotherone("Use Foot Pedal to DECREASE Calibration, use Button change Calibration Factor and return to Test",2,frame1);
+            lcd.setCursor(0,3);
+            lcd.print("    ");
+            lcd.setCursor(0,3);            
+            lcd.print(localSettings.h1Calib);  
+            break;
+          case 2:
+            frame1 = idleanimotherone("Use Foot Pedal to INCREASE Calibration, use Button to return to Test",2,frame1);
+            lcd.setCursor(0,3);
+            lcd.print("    ");
+            lcd.setCursor(0,3);            
+            lcd.print(localSettings.h1Calib);   
+            break;
+          case 3:
+            submode = 0;
+            break;
+          default:
+            submode = 0;
+            break;
+        }
+      break;
+     case 10:    //CALIBRATION SETTINGS HEAD2
+        switch (submode)
+        {
+          case 0:
+            frame1 = idleanimotherone("Use Foot Pedal to TEST Calibration, use Button change Calibration Factor",2,frame1);
+            lcd.setCursor(0,3);
+            lcd.print("    ");
+            lcd.setCursor(0,3);            
+            lcd.print(localSettings.h2Calib);         
+            break;
+          case 1:
+          //get calib factor
+            frame1 = idleanimotherone("Use Foot Pedal to DECREASE Calibration, use Button change Calibration Factor and return to Test",2,frame1);
+            lcd.setCursor(0,3);
+            lcd.print("    ");
+            lcd.setCursor(0,3);            
+            lcd.print(localSettings.h2Calib);  
+            break;
+          case 2:
+            frame1 = idleanimotherone("Use Foot Pedal to INCREASE Calibration, use Button to return to Test",2,frame1);
+            lcd.setCursor(0,3);
+            lcd.print("    ");
+            lcd.setCursor(0,3);            
+            lcd.print(localSettings.h2Calib);     
+            break;
+          case 3:
+            submode = 0;
+            break;
+          default:
+            submode = 0;
+            break;
+        }
+        break;
+      case 11:    //CALIBRATION SETTINGS HEAD3
+        switch (submode)
+        {
+          case 0:
+            frame1 = idleanimotherone("Use Foot Pedal to TEST Calibration, use Button change Calibration Factor",2,frame1);
+            lcd.setCursor(0,3);
+            lcd.print("    ");
+            lcd.setCursor(0,3);            
+            lcd.print(localSettings.h3Calib);       
+            break;
+          case 1:
+          //get calib factor
+            frame1 = idleanimotherone("Use Foot Pedal to DECREASE Calibration, use Button change Calibration Factor and return to Test",2,frame1);
+            lcd.setCursor(0,3);
+            lcd.print("    ");
+            lcd.setCursor(0,3);            
+            lcd.print(localSettings.h3Calib); 
+            break;
+          case 2:
+            frame1 = idleanimotherone("Use Foot Pedal to INCREASE Calibration, use Button to return to Test",2,frame1);
+            lcd.setCursor(0,3);
+            lcd.print("    ");
+            lcd.setCursor(0,3);            
+            lcd.print(localSettings.h3Calib);    
+            break;
+          case 3:
+            submode = 0;
+            break;
+          default:
+            submode = 0;
+            break;
+        }
+        break;
+    }
+    animation_step++;
+    if (animation_step == LCD_COLS) 
+    {
+      animation_step = 0;
+    }    
+}
+
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  WEBSERVER FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////////////////*/
+char StrContains(char *str, char *sfind)
+{
+  char found = 0;
+  char index = 0;
+  char len;
+
+  len = strlen(str);
+
+  if (strlen(sfind) > len) {
+    return 0;
+  }
+  while (index < len) {
+    if (str[index] == sfind[found]) {
+      found++;
+      if (strlen(sfind) == found) {
+        return 1;
+      }
+    }
+    else {
+      found = 0;
+    }
+    index++;
+  }
+  return 0;
+}
+
+// sets every element of str to 0 (clears array)
+void StrClear(char *str, int length)
+{
+  for (int i = 0; i < length; i++) {
+    str[i] = 0;
+  }
+}
+
 int readField(File* file, char* str, size_t size, char* delim)
 {
   char ch;
@@ -689,170 +1381,6 @@ int readField(File* file, char* str, size_t size, char* delim)
   }
   str[n] = '\0';
   return n;
-}
-
-boolean initializeNetwork(struct machineSettings localSettings)
-{
-  //Ethernet.begin(localSettings.mac, ip);  // initialize Ethernet device
-
-  lcd.setCursor(3,1);
-  lcd.print("NETWORK");
-  lcd.setCursor(0,2);
-  lcd.print("                    ");
-  lcd.setCursor(0,2);
-  lcd.print("Getting DHCP IP");
-  lcd.setCursor(0,3);
-  lcd.print("                    ");
-  Ethernet.begin(localSettings.mac);  // initialize Ethernet device
-  server.begin();           // start to listen for clients
-  lcd.setCursor(0,2);
-  lcd.print("                    ");
-  lcd.setCursor(0,2);
-  lcd.print("Visit to Configure: ");
-  lcd.setCursor(0,3);
-  lcd.print("                    ");
-  lcd.setCursor(0,3);
-  //if (strcmpy(Ethernet.localIP(), "0.0.0.0"))
-  //{;
-  //return 0;
-  //}
-  lcd.print(Ethernet.localIP());
-  return 1;
-}
-
-char * getw()
-{
-  //  static char h0str[7];  //must be one more than message length
-  int h0DataLength = 0;
-  //  static char h1str[7];  //must be one more than message length
-  int h1DataLength = 0;
-  //  static char h2str[7];  //must be one more than message length
-  int h2DataLength = 0;
-
-  StrClear(h1str, 7);
-  StrClear(h2str, 7);
-  StrClear(h3str, 7);
-
-  digitalWrite(HEAD1EN, HIGH);
-  digitalWrite(HEAD2EN, HIGH);
-  digitalWrite(HEAD3EN, HIGH);
-  delay(5);
-  digitalWrite(HEAD1EN, LOW);
-  digitalWrite(HEAD2EN, LOW);
-  digitalWrite(HEAD3EN, LOW);
-  //ENABLE DELAY
-//    while ( !lcd.available() && !head1.available() && !head2.available() )
-//    {
-//      delay(1);
-//    }
-
-    while ( !head1.available() )
-    {
-      delay(1);
-    }
-
-  if ( head1.available() )
-  {
-    while (head1.available())
-    {
-      char h1data = head1.read();
-      //        Serial.print("->");
-      //        Serial.print(h0data, HEX);
-      //        Serial.print("<-");
-      if ( h1data == '\r' )
-      {
-        break;
-      }
-      if ( h1data == '\0' )
-      {
-        break;
-      }
-      if ( h1data != 0xFF )
-      {
-        h1str[h1DataLength] = h1data;
-        h1DataLength++;
-      }
-
-    }
-  }
-//  //  while (!head2.available() )
-//  //  {
-//  //    delay(1);
-//  //  }
-//
-//  if ( head2.available() )
-//  {
-//    while (head2.available())
-//    {
-//      char h2data = head2.read();
-//      //        Serial.print("->");
-//      //        Serial.print(h2data, HEX);
-//      //        Serial.print("<-");
-//      if ( h2data == '\r' )
-//      {
-//        break;
-//      }
-//      if ( h2data == '\0' )
-//      {
-//        break;
-//      }
-//      if ( h2data != 0xFF )
-//      {
-//        h2str[h2DataLength] = h2data;
-//        h2DataLength++;
-//      }
-//
-//    }
-//  }
-//  //
-//  //  while (!head3.available() )
-//  //  {
-//  //    delay(1);
-//  //  }
-//
-//  if ( head3.available() )
-//  {
-//    while ( head3.available())
-//    {
-//      char h3data = head3.read();
-//      //        Serial.print("->");
-//      //        Serial.print(h3data, HEX);
-//      //        Serial.print("<-");
-//      if ( h3data == '\r' )
-//      {
-//        break;
-//      }
-//      if ( h3data == '\0' )
-//      {
-//        break;
-//      }
-//      if ( h3data != 0xFF )
-//      {
-//        h3str[h3DataLength] = h3data;
-//        h3DataLength++;
-//      }
-//
-//    }
-//  }
-  //  turn on all three digital pins
-  //  wait for serial data to hit buffer
-  //  store data into array
-
-
-  return h1str;
-}
-
-void updatedata( char *str, File dataFile) //consider returning bool for success
-{
-  if (dataFile) {
-    dataFile.println( str );
-    dataFile.close();
-  }
-  else {
-//    resetLCD();
-//    lcd.print("Error opening file");
-    Serial.println("Error opening file");
-  }
 }
 
 void processrequest(char * , EthernetClient *client)
@@ -892,6 +1420,69 @@ void processrequest(char * , EthernetClient *client)
     client->write("Connnection: close\n");
     client->write("\n");
   }
+}
+
+void updatedata( char *str, File dataFile) //consider returning bool for success
+{
+  if (dataFile) {
+    dataFile.println( str );
+    dataFile.close();
+  }
+  else {
+//    resetLCD();
+//    lcd.print("Error opening file");
+    Serial.println("Error opening file");
+  }
+}
+
+void serveclient(EthernetClient *client)
+{
+  char * request;
+  boolean currentLineIsBlank = true;
+  boolean FileRequest = false;
+  int req_index = 0;
+
+  while (client->connected())
+  {
+    if (client->available())
+    {
+      getclientdata(client); //fills HTTP buffer
+      if ((HTTP_req[req_index] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
+      {
+        processrequest(HTTP_req, client);        //serve request
+        currentLineIsBlank = false;
+        req_index = 0;
+        request_index = 0;
+        StrClear(HTTP_req, REQ_BUF_SZ);
+        break;
+      }
+      if (HTTP_req[req_index] == '\n')      //last character is a /n /n
+      {
+        currentLineIsBlank = true;
+      }
+      else if (HTTP_req[req_index] != '\r')         // a text character was received from client
+      {
+        currentLineIsBlank = false;
+      }
+      req_index++;
+    }// end if (client.available())
+  } // end while (client.connected())
+  delay(1);  // give the web browser time to receive the data
+  client->stop();  // close the connection:
+}
+
+char * getclientdata(EthernetClient *client)
+{
+  char c = client->read(); // read 1 byte (character) from client
+  // buffer first part of HTTP request in HTTP_req array (string)
+  // leave last element in array as 0 to null terminate string (REQ_BUF_SZ - 1)
+
+  if (request_index < (REQ_BUF_SZ - 1))
+  {
+    HTTP_req[request_index] = c;          // save HTTP request character
+    request_index++;
+  }
+  return HTTP_req;
 }
 
 void validaterequest(char * HTTP_req, char * request)   //TODO : add ajaxhandler to improve efficiency
@@ -972,15 +1563,25 @@ void processPostAction(char *postrequest)
   switch (i)
   {
     case 0: //contp aka CPressure
-      localSettings.CPressure = strtol(token, (char **)NULL, 10);
-      Serial.print(localSettings.CPressure);
+      localSettings.pressure2 = strtol(token, (char **)NULL, 10);
+      setPressures2();
       break;
     case 1: //final pressure aka FPressure
-      localSettings.FPressure = strtol(token, (char **)NULL, 10);
+      localSettings.pressure3 = strtol(token, (char **)NULL, 10);
+      setPressures3();
       break;
     case 2: //rest time aka rest
       localSettings.Rest = strtol(token, (char **)NULL, 10);
+      setRest();
       break;
+    case 3: //touchp
+      localSettings.pressure1= strtol(token, (char **)NULL, 10);
+      setPressures1();
+      break;
+    case 4: //calibration pressure
+      localSettings.calibration_pressure = strtol(token, (char **)NULL, 10);
+      setCalibrationPressure();
+      break;  
   }
 }
 
@@ -1052,16 +1653,16 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
       client->print(growerSettings.currentLot);
       break;
 
-    case 6 : //cpressure
-      client->print(localSettings.CPressure);
+    case 6 : //pressure1
+      client->print(localSettings.pressure1);
       break;
 
     case 7 : //remaining
       client->print(growerSettings.totalLot - growerSettings.currentLot);
       break;
 
-    case 8 : //fpressure
-      client->print(localSettings.FPressure);
+    case 8 : //pressure2
+      client->print(localSettings.pressure2);
       break;
 
     case 9 : //rest
@@ -1076,8 +1677,8 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
       client->print("11");
       break;
 
-    case 12 : //calib
-      client->print("12");
+    case 12 : //pressure3
+      client->print(localSettings.pressure3);
       break;
 
     case 13 : //receiveip
@@ -1133,25 +1734,21 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
       }
       break;
 
-    case 18 : //table1
-      requestint = 0;
-      //
-      client->print("0");
-      client->print(' ');
-      client->print(requestint);
-      client->print(' ');
-      client->print("16");
-      client->print(' ');
-      client->print("24");
-      client->print(' ');
-      break;
+//    case 18 : //table1
+//      requestint = 0;
+//      //
+//      client->print("0");
+//      client->print(' ');
+//      client->print(requestint);
+//      client->print(' ');
+//      client->print("16");
+//      client->print(' ');
+//      client->print("24");
+//      client->print(' ');
+//      break;
 
-    case 19 :
-      client->print("19");
-      break;
-
-    case 20 :
-      client->print("20");
+    case 18 :     //ajax calib
+      client->print(localSettings.calibration_pressure);
       break;
 
     default :
@@ -1163,25 +1760,685 @@ void processaction(char HTTP_req[REQ_BUF_SZ], EthernetClient *client)
   }
 }
 
-void idleanim()
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  COMMUNICATION FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////////////////*/
+
+char * headtobridge()
 {
-  unsigned long currentMillis = millis();
-  if (currentMillis  - previousMillis >= 250 )
+  static char headstr[5];  //must be one more than message length
+  int headDataLength = 0;
+  StrClear(headstr, 5);
+  while(head3.available())
   {
-    if (animation_step == LCD_COLS-1) //for two char wide animation
+    char headData = head3.read();
+    //Serial.println(slaveData, HEX);
+    if( headData == '\0' )
     {
-      lcd.setCursor(0,3);
-      lcd.print("                    ");
-      animation_step = 0;
-    }    
-    lcd.setCursor(animation_step,3);
-    lcd.print("->");
-    animation_step++;
-    previousMillis = currentMillis;
+      delay(1);
+      headData = head3.read();
+      //Serial.println(slaveData, HEX);
+    }
+    if( headData == '\n' )
+    {
+      break;
+    }
+    headstr[headDataLength] = headData;
+    headDataLength++;
   }
+  return headstr;
 }
 
-void testfirmness()
+/*/////////////////////////////////////////////////////////////////////////////////////////
+  FRUIT TESTING FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////////////////*/
+
+void runmode()        //Statemachine TODO: Add height and pressure calibration (cal+ cal- commands) settings for head, add option to view current network settings,
+{
+    switch (mode)
+    {
+      case 0:                 //DEFAULT  //testfruit:
+        switch(submode)
+        {
+          case 0:             //normal test
+            testfirmness();
+            break;
+          case 1:
+            //restart current grower
+            break;
+          case 2:             //select next grower
+            break;
+          case 3:                    //back to 2
+            //do nothing
+            break;
+          default:
+            break;
+        }
+          break;
+        
+      case 1:    //SD
+        switch(submode)
+        {
+          case 0:
+            //do nothing
+            break;
+          case 1:
+            //do nothing          
+            break;            
+          default:
+            break;
+        }
+          break;
+      case 2:  //testfruit:
+        switch(submode)
+        {
+          case 0:
+            //do nothing
+            break;
+          default:
+            //do nothing
+            break;
+        }
+          break;
+      
+      case 3:         //network
+        switch(submode)
+        {
+          case 0: //more info
+            mode = 8;
+            break;
+          default:
+            //do nothing
+            break;
+        }
+          break;
+      
+      case 4:    //FOOTPEDAL
+        switch(submode)
+        {
+          case 0:
+            //do nothing
+            break;
+          case 1:
+            //do nothing          
+            break;
+          default:
+            //do nothing          
+            break;
+        }
+          break;          
+        
+      case 5:          //head1
+        switch(submode)
+        {
+          case 0:
+            mode = 9;
+            submode = 0;
+            break;
+          case 1:
+            //do nothing          
+            break;            
+          default:
+            //do nothing
+            break;
+        }
+          break;
+      case 6:         //head2
+        switch(submode)
+        {
+          case 0:
+            mode = 10;
+            submode = 0;
+            break;
+          case 1:
+            //do nothing          
+            break;            
+          default:
+            break;
+        }
+          break;
+      
+      case 7:          //head3
+        switch(submode)
+        {
+          case 0:
+            mode = 11;
+            submode = 0;
+            break;
+          case 1:
+            //do nothing          
+            break;              
+          default:
+            //do nothing          
+            break;
+        }
+          break;
+        
+      case 8:             //network mode
+        switch(submode)
+        {
+          case 0:
+            //do nothing          
+            break;
+          case 1:
+            //do nothing          
+            break;  
+          default:
+            //do nothing          
+            break;
+        }
+          break;
+          
+      case 9:
+        switch(submode)   //head 1 calibration mode
+        {
+          case 0:
+            //start calibration
+            break;
+          case 1:
+            //decrease calibration         
+            break;
+          case 2:
+            //increase calibration         
+            break;                 
+          default:
+            //do nothing          
+            break;
+        }
+        break;
+      case 10:
+        switch(submode)   //head 2 calibration mode
+        {
+          case 0:
+            //start calibration         
+            break;
+          case 1:
+            //decrease calibration         
+            break;
+          case 2:
+            //increase calibration         
+            break;                 
+          default:
+            //do nothing          
+            break;            
+        }
+        break;
+      case 11:
+        switch(submode)   //head 3 calibration mode
+        {
+          case 0:
+            //start calibration
+            calibrateHead3();
+            break;
+          case 1:
+            localSettings.h3Calib--; 
+            //decrease calibration         
+            break;
+          case 2:
+            localSettings.h3Calib++; 
+            //increase calibration         
+            break;                 
+          default:
+            //do nothing          
+            break;            
+        }
+        break;          
+    }
+    
+
+    //load turn table by slow stepping 3/4 of entire rotation
+    //step turntable to find first fruit
+    //back up till fruit is under head 3
+    //test all fruit on turn table
+    //move one slot forward and repeat
+    //eject all fruit
+    
+    //lcd.setCursor(0,0);
+    //lcd.print("  Testing Firmness  ");
+    //if (fruit == 0)
+    //{
+      //lcd.setCursor(0,1);  
+      //lcd.print("Finding First Fruit ");
+      //findposition();
+      //lcd.setCursor(0,1);
+      //lcd.print("Aligning Table Heads");
+      //stepbacktohead();
+      //lcd.setCursor(0,1)
+      //lcd.print("Start Firmness Test ");
+    //}
+
+    //lcd.setCursor(0,1);  
+    //lcd.print("  H1     H2     H3  ");
+    //lcd.print("XXX.XX XXX.XX XXX.XX");
+    //lcd.print("XXX.XX XXX.XX XXX.XX");
+
+    //if (fruit == 24)
+    //{
+    //  kickfruit();
+    //  fruit--;
+    //}
+
+
+}
+
+char * getw()             //TODO: synchronize heads
+{
+  //  static char h0str[7];  //must be one more than message length
+  int h1DataLength = 0;
+  //  static char h1str[7];  //must be one more than message length
+  int h2DataLength = 0;
+  //  static char h2str[7];  //must be one more than message length
+  int h3DataLength = 0;
+
+  StrClear(h1str, 7);
+  StrClear(h2str, 7);
+  StrClear(h3str, 7);
+
+//  if(localSettings.head1)
+// {
+//    int timeout = 0;
+//    char headId[4];
+//    
+//    digitalWrite(HEAD1EN, HIGH);
+//    while(!head1.available() && (timeout <= 250))
+//    {
+//      delay(1);
+//      timeout++;
+//      lcd.setCursor(0,3);
+//      lcd.print(timeout);
+//    }
+//    digitalWrite(HEAD1EN, LOW);
+//    if(timeout < 250)
+//    {
+//      for(int i = 0; i < 4; i++)
+//      {
+//        headId[i] = char(head1.read());
+//        delay(1);
+//      }
+//      //what should go here calibration number?
+//      head1.write("test");
+//      while(!head1.available())
+//      {
+//        delay(1);
+//      }
+//      while (head1.available())
+//      {
+//        char h1data = head1.read();
+//                Serial.print("->");
+//                Serial.print(h1data);
+//                Serial.print("<-");
+//        if ( h1data == '\r' )
+//        {
+//          break;
+//        }
+//        if ( h1data == '\0' )
+//        {
+//          break;
+//        }
+//        if ( h1data != 0xFF )
+//        {
+//          h1str[h1DataLength] = h1data;
+//          h1DataLength++;
+//        }
+//  
+//      }
+//    }
+//  }  
+//  if(localSettings.head2)
+//  {
+//    int timeout = 0;
+//    char headId[4];
+//    
+//    digitalWrite(HEAD2EN, HIGH);
+//    while(!head2.available() && (timeout <= 250))
+//    {
+//      delay(1);
+//      timeout++;
+//      lcd.setCursor(0,3);
+//      lcd.print(timeout);
+//    }
+//    digitalWrite(HEAD2EN, LOW);
+//    if(timeout < 250)
+//    {
+//      for(int i = 0; i < 4; i++)
+//      {
+//        headId[i] = char(head2.read());
+//        delay(1);
+//      }
+//      //what should go here calibration number?
+//      head2.write("test");
+//      while(!head2.available())
+//      {
+//        delay(1);
+//      }
+//      while (head2.available())
+//      {
+//        char h2data = head2.read();
+//        delay(1);
+//                Serial.print("->");
+//                Serial.print(h2data);
+//                Serial.print("<-");
+//        if ( h2data == '\r' )
+//        {
+//          break;
+//        }
+//        if ( h2data == '\0' )
+//        {
+//          break;
+//        }
+//        if ( h2data != 0xFF )
+//        {
+//          h2str[h2DataLength] = h2data;
+//          h2DataLength++;
+//        }
+//  
+//      }
+//    }
+//  }  
+  if(localSettings.head3)
+  {
+    int timeout = 0;
+    char headId[4];
+    
+    digitalWrite(HEAD3EN, HIGH);
+    delay(10);
+    digitalWrite(HEAD3EN, LOW);
+    while(!head3.available() && (timeout <= 250))
+    {
+      delay(1);
+      timeout++;
+      lcd.setCursor(0,3);
+      lcd.print(timeout);
+    }
+
+    if(timeout < 250)
+    {
+      int i = 0;
+      while (head3.available())
+      {
+//        for(int i = 0; i < 4; i++)
+//        {
+
+          headId[i] = char(head3.read());
+          
+          Serial.print(headId[i]);
+          delay(1);
+          i++;
+          //head3.flush();
+//        }
+      }
+      //what should go here calibration number?
+      delay(1);
+      head3.write("test");
+      timeout = 0;
+      while(!head3.available() && (timeout < 5000))
+      {
+        delay(1);
+        timeout++;
+        lcd.setCursor(0,3);
+        lcd.print(timeout);        
+      }
+      while (head3.available())
+      {
+        char h3data = head3.read();
+        delay(1);
+                Serial.print("->");
+                Serial.print(h3data);
+                Serial.print("<-");
+        if ( h3data == '\r' )
+        {
+          break;
+        }
+        if ( h3data == '\0' )
+        {
+          break;
+        }
+        if ( h3data != 0xFF )
+        {
+          h3str[h3DataLength] = h3data;
+          h3DataLength++;
+        }
+  
+      }
+      head3.flush();
+      Serial.print("here");
+    }
+  }  
+  return h3str;
+}
+
+
+//additional commands
+//sts1
+//sts2
+//sts3
+
+char * setPressures1()  //TODO: Confim function works, likely issue with head
+{
+
+  int timeout = 0;
+  char headId[4];
+  StrClear(h3str, 7);
+  int h3DataLength = 0;
+  
+  digitalWrite(HEAD3EN, HIGH);
+  while(!head3.available() && (timeout <= 250))
+  {
+    delay(1);
+    timeout++;
+    lcd.setCursor(0,3);
+    lcd.print(timeout);
+  }
+  digitalWrite(HEAD3EN, LOW);
+  if(timeout < 250)
+  {
+    for(int i = 0; i < 4; i++)
+    {
+      headId[i] = char(head3.read());
+      delay(1);
+    }
+    //what should go here calibration number?
+    head3.write("stw1");
+
+    while(!head3.available())
+    {
+      delay(1);
+    }
+    while (head3.available())
+    {
+      char h3data = head3.read();
+      delay(1);
+      Serial.print(h3data);
+      if ( h3data == '\r' )
+      {
+        break;
+      }
+      if ( h3data == '\0' )
+      {
+        break;
+      }
+      if ( h3data != 0xFF )
+      {
+        h3str[h3DataLength] = h3data;
+        h3DataLength++;
+      }
+
+    }
+  }
+  digitalWrite(HEAD3EN, HIGH);
+  timeout = 0;
+  while(!head3.available() && (timeout <= 250))
+  {
+    delay(1);
+    timeout++;
+    lcd.setCursor(0,3);
+    lcd.print(timeout);
+  }
+  digitalWrite(HEAD3EN, LOW);
+  if(timeout < 250)
+  {
+    for(int i = 0; i < 4; i++)
+    {
+      headId[i] = char(head3.read());
+      delay(1);
+    }
+  head3.write(localSettings.pressure1);
+  head3.write('\n');
+
+  while(!head3.available())
+  {
+    delay(1);
+  }
+  while (head3.available())
+  {
+    char h3data = head3.read();
+            Serial.print(h3data);
+    if ( h3data == '\r' )
+    {
+      break;
+    }
+    if ( h3data == '\0' )
+    {
+      break;
+    }
+    if ( h3data != 0xFF )
+    {
+      h3str[h3DataLength] = h3data;
+      h3DataLength++;
+    }
+
+  }
+  }
+  return h3str;
+} 
+
+char * setPressures2()  //TODO: POPULATE FUNCTION
+{
+  
+}
+
+char * setPressures3()  //TODO: POPULATE FUNCTION
+{
+  
+}
+
+char * setRest()  //TODO: POPULATE FUNCTION
+{
+  
+}
+
+char * setCalibrationPressure()  //TODO: Confim function works, likely issue with head
+{
+
+  int timeout = 0;
+  char headId[4];
+  StrClear(h3str, 7);
+  int h3DataLength = 0;
+  
+  digitalWrite(HEAD3EN, HIGH);
+  while(!head3.available() && (timeout <= 250))
+  {
+    delay(1);
+    timeout++;
+    lcd.setCursor(0,3);
+    lcd.print(timeout);
+  }
+  digitalWrite(HEAD3EN, LOW);
+  if(timeout < 250)
+  {
+    for(int i = 0; i < 4; i++)
+    {
+      headId[i] = char(head3.read());
+      delay(1);
+    }
+    //what should go here calibration number?
+    head3.write("setc");
+    head3.write("0100");
+    while(!head3.available())
+    {
+      delay(1);
+    }
+    while (head3.available())
+    {
+      char h3data = head3.read();
+              Serial.print("->");
+              Serial.print(h3data);
+              Serial.print("<-");
+      if ( h3data == '\r' )
+      {
+        break;
+      }
+      if ( h3data == '\0' )
+      {
+        break;
+      }
+      if ( h3data != 0xFF )
+      {
+        h3str[h3DataLength] = h3data;
+        h3DataLength++;
+      }
+
+    }
+  }
+  return h3str;
+}  
+
+
+char * calibrateHead3()  //TODO: Confim function works, likely issue with head
+{
+  int timeout = 0;
+  char headId[4];
+  StrClear(h3str, 7);
+  int h3DataLength = 0;
+  
+  digitalWrite(HEAD3EN, HIGH);
+  while(!head3.available() && (timeout <= 250))
+  {
+    delay(1);
+    timeout++;
+    lcd.setCursor(0,3);
+    lcd.print(timeout);
+  }
+  digitalWrite(HEAD3EN, LOW);
+  if(timeout < 250)
+  {
+    for(int i = 0; i < 4; i++)
+    {
+      headId[i] = char(head3.read());
+      delay(1);
+    }
+    //what should go here calibration number?
+    head3.write("cali");
+    while(!head3.available())
+    {
+      delay(1);
+    }
+    while (head3.available())
+    {
+      char h3data = head3.read();
+              Serial.print("->");
+              Serial.print(h3data);
+              Serial.print("<-");
+      if ( h3data == '\r' )
+      {
+        break;
+      }
+      if ( h3data == '\0' )
+      {
+        break;
+      }
+      if ( h3data != 0xFF )
+      {
+        h3str[h3DataLength] = h3data;
+        h3DataLength++;
+      }
+
+    }
+  }
+  return h3str;
+}  
+
+void testfirmness()   //TODO: UPDATE FUNCTION TO TESTING PROCEDURE USING LOT SETTINGS PARAMETERS
 {
   digitalWrite(DIR, LOW);
   digitalWrite(EN, LOW);  //???????
@@ -1229,23 +2486,23 @@ void testfirmness()
 
     //resetLCD();
     Serial.println();
-    if (new_lot)                      //what to display on the screen
-    {
-      //lcd.write("Ready To Sample New Lot"); //first sample of lot
-      Serial.print("Ready To Sample New Lot");
-    }
-    else if ( (samples - (changecount / 3)) <= changecount)           //samples in lot limit  //TODO: REMOVE CHANGECOUNT VARIABLE
-    {
-      //lcd.write("Next Sample"); //first sample of lot
-      Serial.print("Next Sample");
-    }
-    else                              //last sample
-    {
-      //lcd.write("Last Sample"); //first sample of lot
-      Serial.print("Last Sample");
-      samples = 0;
-      new_lot = true;
-    }
+////    if (new_lot)                      //what to display on the screen
+////    {
+////      //lcd.write("Ready To Sample New Lot"); //first sample of lot
+////      Serial.print("Ready To Sample New Lot");
+////    }
+//    else if ( (samples - (changecount / 3)) <= changecount)           //samples in lot limit  //TODO: REMOVE CHANGECOUNT VARIABLE
+//    {
+//      //lcd.write("Next Sample"); //first sample of lot
+//      Serial.print("Next Sample");
+//    }
+//    else                              //last sample
+//    {
+//      //lcd.write("Last Sample"); //first sample of lot
+//      Serial.print("Last Sample");
+//      samples = 0;
+//      new_lot = true;
+//    }
 
 //    steps = 0;
 //    while (steps <= 100 && !new_lot)
@@ -1274,38 +2531,43 @@ void testfirmness()
 
     //resetLCD();
 
-    if (new_lot && samples > 0)
-    {
-      //lcd.print("Getting first   sample");
-      Serial.print("Getting first   sample");
-      new_lot = false;
-    }
+//    if (new_lot && samples > 0)
+//    {
+//      //lcd.print("Getting first   sample");
+//      Serial.print("Getting first   sample");
+//      new_lot = false;
+//    }
     //        else if (samples >= (samples - (changecount / 3)) <= changecount)
     //        {
     //          lcd.print("Getting last    sample");
     //
     //        }
-    else
-    {
+//    else
+//    {
       //lcd.setCursor(0,2);
       //lcd.print(h1str);
-      Serial.print(h1str);
-      Serial.write(", ");
-      //lcd.setCursor(7,2);
-      //lcd.print(h2str);
-      Serial.print(h2str);
-    //lcd.setCursor(14,2);
-      //lcd.print(h2str);    
+//      Serial.print(h1str);
+//      Serial.write(", ");
+//      lcd.setCursor(0,2);
+//      lcd.print("                    ");
+//      lcd.setCursor(0,2);
+//      lcd.print(h2str);
+//      Serial.print(h2str);
+    lcd.setCursor(0,3);
+      lcd.print("                    ");
+      lcd.setCursor(0,3);
+      lcd.print(h3str);    
       Serial.write(", ");
       Serial.print(h3str);
+      delay(5000);
 
-    }
-    samples++;
+//    }
+//    samples++;
 
   //}
 }
 
-void findposition()
+void findposition()   //TODO: Confirm Distances
 {
   digitalWrite(DIR, LOW);
   digitalWrite(EN, LOW);
@@ -1323,10 +2585,10 @@ void findposition()
     digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
     delay(1);
   }
-  delay(100);
+  delay(100);                       //why is this delay here
   digitalWrite(DIR, HIGH);
   steps = 0;
-  while ( steps <= 1000 )  //reverse table certain distance TODO: distance should depend on number of head
+  while ( steps <= 1000 )  //reverse table certain distance TODO: distance should depend on number/postions of heads
   {
     steps++;
     digitalWrite(STP, HIGH); //Trigger one step forward
@@ -1358,7 +2620,7 @@ void kickfruit()
     digitalWrite(STP, LOW); //Pull step pin low so it can be triggered again
     delay(1);
   }
-  delay(250);
+  delay(250);           //settling time
   digitalWrite(DIR, HIGH);
   //digitalWrite(MS2, HIGH);
   //digitalWrite(MS3, HIGH);
@@ -1373,52 +2635,3 @@ void kickfruit()
   //reverse table certain distance
 }
 
-void serveclient(EthernetClient *client)
-{
-  char * request;
-  boolean currentLineIsBlank = true;
-  boolean FileRequest = false;
-  int req_index = 0;
-
-  while (client->connected())
-  {
-    if (client->available())
-    {
-      getclientdata(client); //fills HTTP buffer
-      if ((HTTP_req[req_index] == '\n') && currentLineIsBlank) //is this the end of data?  //use hex values?
-      {
-        processrequest(HTTP_req, client);        //serve request
-        currentLineIsBlank = false;
-        req_index = 0;
-        request_index = 0;
-        StrClear(HTTP_req, REQ_BUF_SZ);
-        break;
-      }
-      if (HTTP_req[req_index] == '\n')      //last character is a /n /n
-      {
-        currentLineIsBlank = true;
-      }
-      else if (HTTP_req[req_index] != '\r')         // a text character was received from client
-      {
-        currentLineIsBlank = false;
-      }
-      req_index++;
-    }// end if (client.available())
-  } // end while (client.connected())
-  delay(1);  // give the web browser time to receive the data
-  client->stop();  // close the connection:
-}
-
-char * getclientdata(EthernetClient *client)
-{
-  char c = client->read(); // read 1 byte (character) from client
-  // buffer first part of HTTP request in HTTP_req array (string)
-  // leave last element in array as 0 to null terminate string (REQ_BUF_SZ - 1)
-
-  if (request_index < (REQ_BUF_SZ - 1))
-  {
-    HTTP_req[request_index] = c;          // save HTTP request character
-    request_index++;
-  }
-  return HTTP_req;
-}
